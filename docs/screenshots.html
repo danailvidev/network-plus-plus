@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Network++ Screenshot Guide</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="index.html">Network++</a>
+      <nav class="nav" aria-label="Primary navigation">
+        <a href="index.html#features">Features</a>
+        <a href="index.html#screenshots">Screenshots</a>
+        <a href="index.html#install">Install</a>
+      </nav>
+    </header>
+
+    <main class="section">
+      <div class="section-heading">
+        <p class="eyebrow">Launch assets</p>
+        <h1>Screenshot Capture Guide</h1>
+        <p>
+          Replace the designed preview images in <code>docs/assets/screenshots/</code> with real product screenshots before
+          public release.
+        </p>
+      </div>
+
+      <div class="feature-grid">
+        <article class="card">
+          <h3>hero.png</h3>
+          <p>Full DevTools window with populated request table, insights panel, and selected request details.</p>
+        </article>
+        <article class="card">
+          <h3>filters.png</h3>
+          <p>Filter bar with a query like <code>status:&gt;=400 method:POST graphql:true</code>, active chips, and saved filters.</p>
+        </article>
+        <article class="card">
+          <h3>graphql.png</h3>
+          <p>GraphQL request details with operation name, operation type, variables, and at least one timing or error example.</p>
+        </article>
+        <article class="card">
+          <h3>exports.png</h3>
+          <p>Export menu showing JSON, CSV, HAR, Markdown, MSW, Playwright, Copy cURL, and the redaction state.</p>
+        </article>
+        <article class="card">
+          <h3>Sample traffic</h3>
+          <p>Use a local demo API or public test API. Avoid real tokens, private URLs, cookies, customer data, and production payloads.</p>
+        </article>
+        <article class="card">
+          <h3>Capture setup</h3>
+          <p>Use Chrome stable, a 1440x900 or wider window, dark mode, enabled export redaction, and synthetic data for body capture.</p>
+        </article>
+      </div>
+
+      <section class="section install">
+        <div class="section-heading">
+          <p class="eyebrow">Steps</p>
+          <h2>Capture the final screenshots</h2>
+        </div>
+        <div class="install-grid">
+          <div class="terminal">
+            <pre><code>npm run dev</code></pre>
+          </div>
+          <ol>
+            <li>Load <code>.output/chrome-mv3</code> from <code>chrome://extensions</code>.</li>
+            <li>Open a page that generates safe sample traffic.</li>
+            <li>Open DevTools and select <code>Network++</code>.</li>
+            <li>Capture the views listed above.</li>
+            <li>Save the files in <code>docs/assets/screenshots/</code>.</li>
+            <li>Update <code>README.md</code> and <code>docs/index.html</code> if filenames change.</li>
+          </ol>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>Keep screenshots realistic, readable, and free of secrets.</p>
+      <a href="index.html">Back to launch page</a>
+    </footer>
+  </body>
+</html>

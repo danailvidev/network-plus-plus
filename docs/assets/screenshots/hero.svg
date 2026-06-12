@@ -1,0 +1,54 @@
+<svg width="1280" height="760" viewBox="0 0 1280 760" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Network++ DevTools panel preview</title>
+  <desc id="desc">A stylized preview of the Network++ request table, insights panel, and request details drawer.</desc>
+  <rect width="1280" height="760" rx="34" fill="#0b1020"/>
+  <rect x="28" y="28" width="1224" height="704" rx="24" fill="#111827" stroke="#263247"/>
+  <rect x="28" y="28" width="1224" height="54" rx="24" fill="#172033"/>
+  <circle cx="64" cy="55" r="7" fill="#ef4444"/>
+  <circle cx="88" cy="55" r="7" fill="#f59e0b"/>
+  <circle cx="112" cy="55" r="7" fill="#22c55e"/>
+  <text x="146" y="61" fill="#e5edff" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700">Network++</text>
+  <text x="270" y="61" fill="#8ea3c7" font-family="Inter, Arial, sans-serif" font-size="14">Enhanced request visibility for Chrome DevTools</text>
+  <rect x="56" y="112" width="1168" height="76" rx="18" fill="#0f172a" stroke="#263247"/>
+  <rect x="82" y="136" width="516" height="30" rx="10" fill="#172033" stroke="#34445f"/>
+  <text x="102" y="156" fill="#93a4c7" font-family="Inter, Arial, sans-serif" font-size="13">status:&gt;=400 method:POST graphql:true</text>
+  <rect x="624" y="136" width="116" height="30" rx="15" fill="#1e3a8a"/>
+  <text x="654" y="156" fill="#dbeafe" font-family="Inter, Arial, sans-serif" font-size="13">Errors</text>
+  <rect x="752" y="136" width="112" height="30" rx="15" fill="#164e63"/>
+  <text x="779" y="156" fill="#cffafe" font-family="Inter, Arial, sans-serif" font-size="13">GraphQL</text>
+  <rect x="876" y="136" width="96" height="30" rx="15" fill="#14532d"/>
+  <text x="902" y="156" fill="#dcfce7" font-family="Inter, Arial, sans-serif" font-size="13">Slow</text>
+  <rect x="1002" y="136" width="160" height="30" rx="10" fill="#172033" stroke="#34445f"/>
+  <text x="1030" y="156" fill="#e5edff" font-family="Inter, Arial, sans-serif" font-size="13">Export filtered</text>
+  <rect x="56" y="212" width="736" height="332" rx="18" fill="#0f172a" stroke="#263247"/>
+  <text x="82" y="246" fill="#e5edff" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700">Requests</text>
+  <g font-family="Inter, Arial, sans-serif" font-size="12">
+    <text x="82" y="286" fill="#7485a8">Method</text><text x="172" y="286" fill="#7485a8">Status</text><text x="264" y="286" fill="#7485a8">Path</text><text x="626" y="286" fill="#7485a8">Time</text>
+    <rect x="74" y="306" width="690" height="38" rx="10" fill="#172033"/>
+    <text x="94" y="330" fill="#bfdbfe">POST</text><text x="178" y="330" fill="#fecaca">500</text><text x="264" y="330" fill="#e5edff">/graphql CheckoutSummary</text><text x="628" y="330" fill="#fcd34d">842 ms</text>
+    <rect x="74" y="354" width="690" height="38" rx="10" fill="#111827"/>
+    <text x="94" y="378" fill="#bbf7d0">GET</text><text x="178" y="378" fill="#bbf7d0">200</text><text x="264" y="378" fill="#e5edff">/api/products?category=tools</text><text x="628" y="378" fill="#cbd5e1">118 ms</text>
+    <rect x="74" y="402" width="690" height="38" rx="10" fill="#172033"/>
+    <text x="94" y="426" fill="#bfdbfe">POST</text><text x="178" y="426" fill="#fef3c7">304</text><text x="264" y="426" fill="#e5edff">/graphql ProductRecommendations</text><text x="628" y="426" fill="#cbd5e1">96 ms</text>
+    <rect x="74" y="450" width="690" height="38" rx="10" fill="#111827"/>
+    <text x="94" y="474" fill="#bbf7d0">GET</text><text x="178" y="474" fill="#fecaca">404</text><text x="264" y="474" fill="#e5edff">/api/account/preferences</text><text x="628" y="474" fill="#cbd5e1">211 ms</text>
+  </g>
+  <rect x="820" y="212" width="404" height="332" rx="18" fill="#0f172a" stroke="#263247"/>
+  <text x="846" y="246" fill="#e5edff" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700">Insights</text>
+  <g font-family="Inter, Arial, sans-serif" font-size="13">
+    <rect x="846" y="270" width="328" height="42" rx="12" fill="#172033"/><text x="864" y="296" fill="#e5edff">3 duplicate groups</text><text x="1038" y="296" fill="#93c5fd">12 calls</text>
+    <rect x="846" y="326" width="328" height="42" rx="12" fill="#172033"/><text x="864" y="352" fill="#e5edff">5 GraphQL operations</text><text x="1048" y="352" fill="#fca5a5">1 error</text>
+    <rect x="846" y="382" width="328" height="42" rx="12" fill="#172033"/><text x="864" y="408" fill="#e5edff">Slow endpoint</text><text x="1036" y="408" fill="#fcd34d">842 ms</text>
+    <rect x="846" y="438" width="328" height="42" rx="12" fill="#172033"/><text x="864" y="464" fill="#e5edff">Redacted export ready</text><text x="1040" y="464" fill="#86efac">local</text>
+  </g>
+  <rect x="56" y="568" width="1168" height="126" rx="18" fill="#0f172a" stroke="#263247"/>
+  <text x="82" y="602" fill="#e5edff" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700">Selected Request</text>
+  <text x="82" y="634" fill="#93a4c7" font-family="Inter, Arial, sans-serif" font-size="13">Summary</text>
+  <text x="184" y="634" fill="#93a4c7" font-family="Inter, Arial, sans-serif" font-size="13">Headers</text>
+  <text x="286" y="634" fill="#93c5fd" font-family="Inter, Arial, sans-serif" font-size="13">GraphQL</text>
+  <text x="392" y="634" fill="#93a4c7" font-family="Inter, Arial, sans-serif" font-size="13">Timing</text>
+  <text x="492" y="634" fill="#93a4c7" font-family="Inter, Arial, sans-serif" font-size="13">Export</text>
+  <rect x="82" y="654" width="520" height="16" rx="8" fill="#172033"/>
+  <rect x="626" y="654" width="280" height="16" rx="8" fill="#172033"/>
+  <rect x="930" y="654" width="218" height="16" rx="8" fill="#172033"/>
+</svg>

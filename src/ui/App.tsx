@@ -1,0 +1,561 @@
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
+
+import { buildNetworkInsights } from '../analysis/network-insights';
+import { DevtoolsNetworkCapture } from '../network/capture';
+import { isFetchXhrRequest, type NetworkRequest } from '../network/request-model';
+import { parseSearchQuery, type ComparisonOperator, type SearchToken } from '../search/parser';
+import { useRequestsStore } from '../state/requests-store';
+import { useSettingsStore } from '../state/settings-store';
+import { COLOR_TONES, ColorLegend, getRequestColorTone, type ColorTone } from './ColorLegend';
+import { ExportMenu } from './ExportMenu';
+import { CogIcon } from './icons';
+import { InsightsPanel } from './InsightsPanel';
+import { NetworkTable } from './NetworkTable';
+import { RequestDetails } from './RequestDetails';
+import { useCloseMenuOnOutsideClick } from './useCloseMenuOnOutsideClick';
+
+const DETAILS_MIN_PERCENT = 22;
+const DETAILS_MAX_PERCENT = 70;
+const FILTER_DEBOUNCE_MS = 300;
+
+type FilterMode = 'filter' | 'search';
+export type DetailsLayout = 'side' | 'bottom';
+type WorkspaceResizeState = {
+  pointerId: number;
+  startClientX: number;
+  startClientY: number;
+  startDetailsSize: number;
+  workspaceWidth: number;
+  workspaceHeight: number;
+  isBottomLayout: boolean;
+  previousCursor: string;
+  previousUserSelect: string;
+};
+
+const FILTER_MODE_OPTIONS: Array<{ id: FilterMode; label: string; iconPath: string }> = [
+  { id: 'filter', label: 'Filter', iconPath: 'M5 7h14M5 12h10M5 17h14' },
+  { id: 'search', label: 'Search', iconPath: 'M11 18a7 7 0 1 1 4.95-2.05L20 20' }
+];
+
+const clampDetailsSize = (value: number) => Math.min(DETAILS_MAX_PERCENT, Math.max(DETAILS_MIN_PERCENT, value));
+
+const decodeHarText = (text: string | undefined, encoding: string | undefined): string | undefined => {
+  if (!text || encoding?.toLowerCase() !== 'base64') {
+    return text;
+  }
+
+  try {
+    return decodeURIComponent(
+      Array.from(globalThis.atob(text), (char) => `%${char.charCodeAt(0).toString(16).padStart(2, '0')}`).join('')
+    );
+  } catch {
+    return text;
+  }
+};
+
+const getResponseBodyText = (request: NetworkRequest): string =>
+  request.responseBody ?? decodeHarText(request.rawHarEntry?.response.content?.text, request.rawHarEntry?.response.content?.encoding) ?? '';
+
+const includesValue = (source: unknown, query: string): boolean => String(source ?? '').toLowerCase().includes(query.toLowerCase());
+
+const compareStatus = (status: number | null, operator: ComparisonOperator | undefined, expected: number): boolean => {
+  if (status === null || !Number.isFinite(expected)) {
+    return false;
+  }
+
+  switch (operator) {
+    case '>':
+      return status > expected;
+    case '>=':
+      return status >= expected;
+    case '<':
+      return status < expected;
+    case '<=':
+      return status <= expected;
+    case '=':
+    case ':':
+    default:
+      return status === expected;
+  }
+};
+
+const normalizeStatusToken = (operator: ComparisonOperator | undefined, value: string) => {
+  const trimmedValue = value.trim();
+  const comparison = trimmedValue.match(/^(>=|>|<=|<|=)(\d+)$/);
+
+  if (operator === ':' && comparison) {
+    return {
+      operator: comparison[1] as ComparisonOperator,
+      value: Number.parseInt(comparison[2] ?? '', 10)
+    };
+  }
+
+  return {
+    operator,
+    value: Number.parseInt(trimmedValue, 10)
+  };
+};
+
+const matchesStatusToken = (request: NetworkRequest, token: SearchToken): boolean => {
+  const normalizedValue = token.value.trim().toLowerCase();
+
+  if (/^[1-5]xx$/.test(normalizedValue)) {
+    return request.status !== null && Math.floor(request.status / 100) === Number.parseInt(normalizedValue[0] ?? '', 10);
+  }
+
+  if (normalizedValue === 'err' || normalizedValue === 'error' || normalizedValue === 'failed') {
+    return request.status === null || request.failed;
+  }
+
+  const { operator, value } = normalizeStatusToken(token.operator, token.value);
+  return compareStatus(request.status, operator, value);
+};
+
+const matchesFilterToken = (request: NetworkRequest, token: SearchToken): boolean => {
+  const value = token.value.trim();
+  const normalizedValue = value.toLowerCase();
+
+  if (!value) {
+    return true;
+  }
+
+  let matched = false;
+  switch (token.field) {
+    case undefined:
+      matched = [
+        request.url,
+        request.path,
+        request.domain,
+        request.method,
+        request.status,
+        request.statusText,
+        request.status === null || request.failed ? 'failed error err' : undefined
+      ].some((source) => includesValue(source, normalizedValue));
+      break;
+    case 'url':
+    case 'path':
+      matched = includesValue(request.url, normalizedValue) || includesValue(request.path, normalizedValue);
+      break;
+    case 'domain':
+      matched = includesValue(request.domain, normalizedValue);
+      break;
+    case 'method':
+      matched = request.method.toLowerCase() === normalizedValue;
+      break;
+    case 'status':
+      matched = matchesStatusToken(request, token);
+      break;
+    default:
+      matched = false;
+  }
+
+  return token.negated ? !matched : matched;
+};
+
+const matchesRequestFilter = (request: NetworkRequest, tokens: SearchToken[]): boolean => tokens.every((token) => matchesFilterToken(request, token));
+
+export const App = () => {
+  const workspaceRef = useRef<HTMLElement>(null);
+  const workspaceResizeRef = useRef<WorkspaceResizeState | null>(null);
+  const filterMenuRef = useRef<HTMLDivElement>(null);
+  const coloringMenuRef = useRef<HTMLDivElement>(null);
+  const [captureError, setCaptureError] = useState<string | undefined>();
+  const [detailsSizePercent, setDetailsSizePercent] = useState(33);
+  const [detailsLayout, setDetailsLayout] = useState<DetailsLayout>(() =>
+    window.matchMedia('(max-width: 1100px)').matches ? 'bottom' : 'side'
+  );
+  const [hasCustomDetailsLayout, setHasCustomDetailsLayout] = useState(false);
+  const [filterMode, setFilterMode] = useState<FilterMode>('filter');
+  const [filterMenuOpen, setFilterMenuOpen] = useState(false);
+  const [filterQuery, setFilterQuery] = useState('');
+  const [debouncedFilterQuery, setDebouncedFilterQuery] = useState('');
+  const [coloringEnabled, setColoringEnabled] = useState(false);
+  const [coloringMenuOpen, setColoringMenuOpen] = useState(false);
+  const [selectedColorTones, setSelectedColorTones] = useState<ReadonlySet<ColorTone>>(() => new Set(COLOR_TONES.map(([tone]) => tone)));
+  const requests = useRequestsStore((state) => state.requests);
+  const activeRequestId = useRequestsStore((state) => state.activeRequestId);
+  const clearRequests = useRequestsStore((state) => state.clearRequests);
+  const settings = useSettingsStore();
+
+  useEffect(() => {
+    void settings.hydrate();
+  }, []);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 1100px)');
+    const updateWorkspaceDirection = () => {
+      if (!hasCustomDetailsLayout) {
+        setDetailsLayout(mediaQuery.matches ? 'bottom' : 'side');
+      }
+    };
+
+    updateWorkspaceDirection();
+    mediaQuery.addEventListener('change', updateWorkspaceDirection);
+
+    return () => mediaQuery.removeEventListener('change', updateWorkspaceDirection);
+  }, [hasCustomDetailsLayout]);
+
+  useEffect(() => {
+    if (!settings.hydrated) {
+      return undefined;
+    }
+
+    const capture = new DevtoolsNetworkCapture();
+    const pendingRequests: NetworkRequest[] = [];
+    let flushFrameId: number | undefined;
+    const flushPendingRequests = () => {
+      flushFrameId = undefined;
+      const nextRequests = pendingRequests.splice(0);
+      useRequestsStore.getState().addRequests(nextRequests);
+    };
+    const enqueueRequest = (request: NetworkRequest) => {
+      pendingRequests.push(request);
+      flushFrameId ??= window.requestAnimationFrame(flushPendingRequests);
+    };
+
+    capture.start({
+      onRequest: enqueueRequest,
+      onNavigation: () => {
+        pendingRequests.length = 0;
+        if (!useSettingsStore.getState().preserveLogOnReload) {
+          useRequestsStore.getState().clearRequests();
+        }
+      },
+      onError: (error) => setCaptureError(error.message),
+      shouldCaptureResponseBodies: () => useSettingsStore.getState().bodyCaptureEnabled
+    });
+
+    return () => {
+      capture.stop();
+      if (flushFrameId !== undefined) {
+        window.cancelAnimationFrame(flushFrameId);
+      }
+    };
+  }, [settings.hydrated]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => setDebouncedFilterQuery(filterQuery), FILTER_DEBOUNCE_MS);
+    return () => window.clearTimeout(timeoutId);
+  }, [filterQuery]);
+
+  useCloseMenuOnOutsideClick(filterMenuRef, filterMenuOpen, () => setFilterMenuOpen(false));
+  useCloseMenuOnOutsideClick(coloringMenuRef, coloringMenuOpen, () => setColoringMenuOpen(false));
+
+  const fetchXhrRequests = useMemo(() => requests.filter(isFetchXhrRequest), [requests]);
+  const textFilteredRequests = useMemo(() => {
+    const normalizedFilter = debouncedFilterQuery.trim().toLowerCase();
+    if (!normalizedFilter) {
+      return fetchXhrRequests;
+    }
+
+    const filterTokens = filterMode === 'filter' ? parseSearchQuery(debouncedFilterQuery).tokens : [];
+
+    return fetchXhrRequests.filter((request) => {
+      if (filterMode === 'search') {
+        return getResponseBodyText(request).toLowerCase().includes(normalizedFilter);
+      }
+
+      return matchesRequestFilter(request, filterTokens);
+    });
+  }, [debouncedFilterQuery, fetchXhrRequests, filterMode]);
+  const visibleRequests = useMemo(() => {
+    if (!coloringEnabled || selectedColorTones.size === COLOR_TONES.length) {
+      return textFilteredRequests;
+    }
+
+    return textFilteredRequests.filter((request) => {
+      const tone = getRequestColorTone(request);
+      return tone !== undefined && selectedColorTones.has(tone);
+    });
+  }, [coloringEnabled, selectedColorTones, textFilteredRequests]);
+  const insights = useMemo(() => buildNetworkInsights(visibleRequests), [visibleRequests]);
+  const activeRequest = useMemo(() => fetchXhrRequests.find((request) => request.id === activeRequestId), [activeRequestId, fetchXhrRequests]);
+
+  const failedCount = useMemo(
+    () => visibleRequests.filter((request) => request.failed || (request.status !== null && request.status >= 400)).length,
+    [visibleRequests]
+  );
+  const graphqlCount = useMemo(() => visibleRequests.filter((request) => request.graphql).length, [visibleRequests]);
+  const hasDetailsPanel = activeRequest !== undefined;
+  const isBottomDetailsLayout = detailsLayout === 'bottom';
+  const activeFilterMode = FILTER_MODE_OPTIONS.find((option) => option.id === filterMode) ?? FILTER_MODE_OPTIONS[0]!;
+  const workspaceStyle = useMemo<CSSProperties>(
+    () => {
+      if (!hasDetailsPanel) {
+        return {};
+      }
+
+      return isBottomDetailsLayout
+        ? {
+            gridTemplateColumns: '1fr',
+            gridTemplateRows: `minmax(220px, 1fr) 12px minmax(220px, ${detailsSizePercent}%)`,
+            gridTemplateAreas: '"table" "resizer" "details"'
+          }
+        : {
+            gridTemplateColumns: `minmax(360px, 1fr) 12px minmax(280px, ${detailsSizePercent}%)`,
+            gridTemplateRows: 'minmax(0, 1fr)',
+            gridTemplateAreas: '"table resizer details"'
+          };
+    },
+    [detailsSizePercent, hasDetailsPanel, isBottomDetailsLayout]
+  );
+
+  const updateWorkspaceResize = (clientX: number, clientY: number) => {
+    const resize = workspaceResizeRef.current;
+    if (!resize) {
+      return;
+    }
+
+    const nextSize = resize.isBottomLayout
+      ? ((resize.startDetailsSize + resize.startClientY - clientY) / resize.workspaceHeight) * 100
+      : ((resize.startDetailsSize + resize.startClientX - clientX) / resize.workspaceWidth) * 100;
+    setDetailsSizePercent(clampDetailsSize(nextSize));
+  };
+
+  const stopWorkspaceResize = (resizer?: HTMLButtonElement) => {
+    const resize = workspaceResizeRef.current;
+    if (!resize) {
+      return;
+    }
+
+    document.body.style.cursor = resize.previousCursor;
+    document.body.style.userSelect = resize.previousUserSelect;
+    if (resizer?.hasPointerCapture(resize.pointerId)) {
+      resizer.releasePointerCapture(resize.pointerId);
+    }
+    workspaceResizeRef.current = null;
+  };
+
+  const startWorkspaceResize = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    const workspace = workspaceRef.current;
+    if (!workspace) {
+      return;
+    }
+
+    event.preventDefault();
+    const rect = workspace.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) {
+      return;
+    }
+
+    const detailsPanel = workspace.querySelector<HTMLElement>('.details-panel');
+    const detailsRect = detailsPanel?.getBoundingClientRect();
+    const startDetailsSize = isBottomDetailsLayout ? detailsRect?.height : detailsRect?.width;
+    if (!startDetailsSize) {
+      return;
+    }
+
+    stopWorkspaceResize(event.currentTarget);
+    workspaceResizeRef.current = {
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      startDetailsSize,
+      workspaceWidth: rect.width,
+      workspaceHeight: rect.height,
+      isBottomLayout: isBottomDetailsLayout,
+      previousCursor: document.body.style.cursor,
+      previousUserSelect: document.body.style.userSelect
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    document.body.style.cursor = isBottomDetailsLayout ? 'row-resize' : 'col-resize';
+    document.body.style.userSelect = 'none';
+    updateWorkspaceResize(event.clientX, event.clientY);
+  };
+
+  const moveWorkspaceResize = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    const resize = workspaceResizeRef.current;
+    if (!resize || resize.pointerId !== event.pointerId) {
+      return;
+    }
+
+    event.preventDefault();
+    updateWorkspaceResize(event.clientX, event.clientY);
+  };
+
+  const endWorkspaceResize = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    const resize = workspaceResizeRef.current;
+    if (!resize || resize.pointerId !== event.pointerId) {
+      return;
+    }
+
+    stopWorkspaceResize(event.currentTarget);
+  };
+
+  const resizeWorkspaceWithKeyboard = (event: KeyboardEvent<HTMLButtonElement>) => {
+    const step = event.shiftKey ? 10 : 4;
+    const deltas: Record<string, number> = isBottomDetailsLayout
+      ? { ArrowUp: step, ArrowDown: -step, Home: DETAILS_MIN_PERCENT - detailsSizePercent, End: DETAILS_MAX_PERCENT - detailsSizePercent }
+      : { ArrowLeft: step, ArrowRight: -step, Home: DETAILS_MIN_PERCENT - detailsSizePercent, End: DETAILS_MAX_PERCENT - detailsSizePercent };
+    const delta = deltas[event.key];
+
+    if (delta === undefined) {
+      return;
+    }
+
+    event.preventDefault();
+    setDetailsSizePercent((size) => clampDetailsSize(size + delta));
+  };
+
+  const toggleDetailsLayout = () => {
+    setHasCustomDetailsLayout(true);
+    setDetailsLayout((currentLayout) => (currentLayout === 'bottom' ? 'side' : 'bottom'));
+  };
+
+  const toggleColorTone = (tone: ColorTone) => {
+    setSelectedColorTones((currentTones) => {
+      const nextTones = new Set(currentTones);
+      if (nextTones.has(tone)) {
+        nextTones.delete(tone);
+      } else {
+        nextTones.add(tone);
+      }
+
+      return nextTones;
+    });
+  };
+
+  return (
+    <main className="app-shell">
+      <header className="app-header compact">
+        <div className="top-filter" aria-label="Filter or search requests">
+          <div className="top-filter-prefix" ref={filterMenuRef}>
+            <button type="button" className="top-filter-prefix-button" aria-expanded={filterMenuOpen} onClick={() => setFilterMenuOpen((open) => !open)}>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d={activeFilterMode.iconPath} />
+              </svg>
+              <span>{activeFilterMode.label}</span>
+              <svg viewBox="0 0 24 24" aria-hidden="true" className="dropdown-chevron">
+                <path d="M7 10l5 5 5-5" />
+              </svg>
+            </button>
+            {filterMenuOpen ? (
+              <div className="top-filter-menu">
+                {FILTER_MODE_OPTIONS.map((option) => (
+                  <button
+                    type="button"
+                    key={option.id}
+                    className={option.id === filterMode ? 'active' : ''}
+                    onClick={() => {
+                      setFilterMode(option.id);
+                      setFilterMenuOpen(false);
+                    }}
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d={option.iconPath} />
+                    </svg>
+                    <span>{option.label}</span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+          <input
+            type="search"
+            value={filterQuery}
+            placeholder={filterMode === 'search' ? 'Search response bodies...' : 'Filter by URL, method, or status...'}
+            onChange={(event) => setFilterQuery(event.target.value)}
+          />
+        </div>
+        <div className="capture-metrics" aria-label="Capture metrics">
+          <span>{visibleRequests.length} / {fetchXhrRequests.length} Fetch/XHR</span>
+          <span>{failedCount} errors</span>
+          <span>{graphqlCount} GraphQL</span>
+          <label className="toggle compact-toggle" title="Capture response bodies for new requests">
+            <input
+              type="checkbox"
+              checked={settings.bodyCaptureEnabled}
+              onChange={(event) => void settings.updateSettings({ bodyCaptureEnabled: event.target.checked })}
+            />
+            Capture bodies
+          </label>
+          <label className="toggle compact-toggle" title="Keep captured requests when the inspected page reloads">
+            <input
+              type="checkbox"
+              checked={settings.preserveLogOnReload}
+              onChange={(event) => void settings.updateSettings({ preserveLogOnReload: event.target.checked })}
+            />
+            Preserve log
+          </label>
+          <button type="button" className="secondary-button compact-button" onClick={clearRequests}>
+            Clear
+          </button>
+        </div>
+      </header>
+
+      {captureError ? <div className="notice warning">{captureError}</div> : null}
+
+      <section
+        className={`workspace ${hasDetailsPanel ? 'details-open' : ''} layout-${detailsLayout}`}
+        ref={workspaceRef}
+        style={workspaceStyle}
+      >
+        <div className="table-region">
+          <div className="table-actions">
+            <ExportMenu allRequests={fetchXhrRequests} filteredRequests={visibleRequests} activeRequest={activeRequest} />
+            <div className="table-action-controls">
+              {coloringEnabled ? <ColorLegend selectedTones={selectedColorTones} onToggleTone={toggleColorTone} /> : null}
+              <div className="coloring-menu" ref={coloringMenuRef}>
+                <button
+                  type="button"
+                  className="column-menu-button"
+                  aria-label="Coloring options"
+                  aria-expanded={coloringMenuOpen}
+                  onClick={() => setColoringMenuOpen((open) => !open)}
+                >
+                  <CogIcon />
+                </button>
+                {coloringMenuOpen ? (
+                  <div className="column-menu-popover coloring-menu-popover">
+                    <label className="column-menu-item">
+                      <input
+                        type="checkbox"
+                        checked={coloringEnabled}
+                        onChange={(event) => setColoringEnabled(event.target.checked)}
+                      />
+                      <span>Enable coloring</span>
+                    </label>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </div>
+          <InsightsPanel insights={insights} />
+          <NetworkTable
+            requests={visibleRequests}
+            allRequests={fetchXhrRequests}
+            colorEnabled={coloringEnabled}
+            selectedColorTones={selectedColorTones}
+            duplicateRequestCounts={insights.duplicateRequestCounts}
+            requestInsightCounts={insights.requestInsightCounts}
+          />
+        </div>
+
+        {hasDetailsPanel ? (
+          <button
+            type="button"
+            className="panel-resizer"
+            aria-label={isBottomDetailsLayout ? 'Resize request details height' : 'Resize request details width'}
+            aria-orientation={isBottomDetailsLayout ? 'horizontal' : 'vertical'}
+            onPointerDown={startWorkspaceResize}
+            onPointerMove={moveWorkspaceResize}
+            onPointerUp={endWorkspaceResize}
+            onPointerCancel={endWorkspaceResize}
+            onLostPointerCapture={() => stopWorkspaceResize()}
+            onKeyDown={resizeWorkspaceWithKeyboard}
+          />
+        ) : null}
+
+        {hasDetailsPanel ? (
+          <RequestDetails
+            request={activeRequest}
+            searchQuery={filterMode === 'search' ? debouncedFilterQuery : ''}
+            insightCount={activeRequest ? insights.requestInsightCounts.get(activeRequest.id) : undefined}
+            layout={detailsLayout}
+            onToggleLayout={toggleDetailsLayout}
+          />
+        ) : null}
+      </section>
+    </main>
+  );
+};

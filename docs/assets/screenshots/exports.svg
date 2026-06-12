@@ -1,0 +1,22 @@
+<svg width="1280" height="760" viewBox="0 0 1280 760" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Network++ export preview</title>
+  <desc id="desc">A stylized preview of redacted local exports for debugging and tests.</desc>
+  <rect width="1280" height="760" rx="34" fill="#08121f"/>
+  <rect x="74" y="78" width="1132" height="604" rx="30" fill="#111827" stroke="#263247"/>
+  <text x="116" y="142" fill="#f8fbff" font-family="Inter, Arial, sans-serif" font-size="38" font-weight="800">Turn traffic into useful artifacts</text>
+  <text x="116" y="180" fill="#95a5c6" font-family="Inter, Arial, sans-serif" font-size="18">Export filtered requests as data, docs, mocks, test routes, or reproducible cURL commands.</text>
+  <g font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700">
+    <rect x="116" y="236" width="180" height="76" rx="18" fill="#172033" stroke="#34445f"/><text x="170" y="282" fill="#dbeafe">JSON</text>
+    <rect x="316" y="236" width="180" height="76" rx="18" fill="#172033" stroke="#34445f"/><text x="376" y="282" fill="#dbeafe">CSV</text>
+    <rect x="516" y="236" width="180" height="76" rx="18" fill="#172033" stroke="#34445f"/><text x="574" y="282" fill="#dbeafe">HAR</text>
+    <rect x="716" y="236" width="180" height="76" rx="18" fill="#172033" stroke="#34445f"/><text x="758" y="282" fill="#dbeafe">Markdown</text>
+    <rect x="916" y="236" width="180" height="76" rx="18" fill="#172033" stroke="#34445f"/><text x="980" y="282" fill="#dbeafe">cURL</text>
+    <rect x="216" y="342" width="260" height="76" rx="18" fill="#0f2f24" stroke="#1d6b4d"/><text x="286" y="388" fill="#bbf7d0">MSW handlers</text>
+    <rect x="508" y="342" width="280" height="76" rx="18" fill="#0f2f24" stroke="#1d6b4d"/><text x="568" y="388" fill="#bbf7d0">Playwright routes</text>
+    <rect x="820" y="342" width="214" height="76" rx="18" fill="#3b2c0c" stroke="#73510d"/><text x="870" y="388" fill="#fde68a">Redacted</text>
+  </g>
+  <rect x="188" y="478" width="904" height="112" rx="22" fill="#0b1220" stroke="#25344f"/>
+  <text x="228" y="520" fill="#93a4c7" font-family="Inter, Arial, sans-serif" font-size="15">Example redaction</text>
+  <text x="228" y="556" fill="#e5edff" font-family="JetBrains Mono, Consolas, monospace" font-size="18">Authorization: Bearer [REDACTED]</text>
+  <text x="642" y="556" fill="#e5edff" font-family="JetBrains Mono, Consolas, monospace" font-size="18">email: [REDACTED]</text>
+</svg>

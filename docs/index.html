@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Network++ is a privacy-first Chrome DevTools network panel for filtering, GraphQL inspection, request insights, and local exports."
+    />
+    <title>Network++ - Enhanced Chrome DevTools Network Panel</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="#top" aria-label="Network++ home">Network++</a>
+      <nav class="nav" aria-label="Primary navigation">
+        <a href="#features">Features</a>
+        <a href="#screenshots">Screenshots</a>
+        <a href="#install">Install</a>
+        <a href="https://github.com/dvidev/network-plus-plus" rel="noreferrer">GitHub</a>
+      </nav>
+    </header>
+
+    <main id="top">
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Chrome DevTools extension</p>
+          <h1>Debug noisy web traffic faster.</h1>
+          <p class="lead">
+            Network++ adds a focused DevTools panel for richer request visibility, structured filtering, GraphQL inspection,
+            actionable insights, and redacted local exports.
+          </p>
+          <div class="actions">
+            <a class="button primary" href="#install">Run locally</a>
+            <a class="button secondary" href="screenshots.html">Screenshot guide</a>
+          </div>
+        </div>
+        <img class="hero-image" src="assets/screenshots/hero.svg" alt="Network++ DevTools panel preview" />
+      </section>
+
+      <section class="problem">
+        <p>
+          Native browser tools are powerful, but API-heavy applications can turn the Network tab into a wall of noise.
+          Network++ keeps request data local and makes the common debugging paths easier to follow.
+        </p>
+      </section>
+
+      <section id="features" class="section">
+        <div class="section-heading">
+          <p class="eyebrow">Features</p>
+          <h2>Built for everyday API debugging</h2>
+        </div>
+        <div class="feature-grid">
+          <article class="card">
+            <h3>Structured filtering</h3>
+            <p>Combine text search with fields such as method, status, domain, path, and GraphQL-aware filters.</p>
+          </article>
+          <article class="card">
+            <h3>GraphQL inspection</h3>
+            <p>Surface operation names, operation types, variables, errors, and repeated GraphQL calls directly in the panel.</p>
+          </article>
+          <article class="card">
+            <h3>Network insights</h3>
+            <p>Spot duplicates, error clusters, slow endpoints, cache hints, sensitive data, and schema drift signals.</p>
+          </article>
+          <article class="card">
+            <h3>Export-ready workflows</h3>
+            <p>Create JSON, CSV, HAR, Markdown, MSW, Playwright, and cURL artifacts from all or filtered requests.</p>
+          </article>
+          <article class="card">
+            <h3>Privacy by default</h3>
+            <p>Response body capture is opt-in, settings stay in chrome.storage.local, and exports are redacted by default.</p>
+          </article>
+          <article class="card">
+            <h3>DevTools-native</h3>
+            <p>Network++ runs as a dedicated Chrome DevTools panel and captures requests only while DevTools is open.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="screenshots" class="section">
+        <div class="section-heading">
+          <p class="eyebrow">Screenshots</p>
+          <h2>Designed previews for launch</h2>
+          <p>These visuals are presentable launch previews. Replace them with real captures before a public release.</p>
+        </div>
+        <div class="gallery">
+          <figure>
+            <img src="assets/screenshots/filters.svg" alt="Network++ filtering preview" />
+            <figcaption>Filter by status, method, domain, path, GraphQL state, and saved searches.</figcaption>
+          </figure>
+          <figure>
+            <img src="assets/screenshots/graphql.svg" alt="Network++ GraphQL inspection preview" />
+            <figcaption>Inspect GraphQL operations without digging through generic POST payloads.</figcaption>
+          </figure>
+          <figure>
+            <img src="assets/screenshots/exports.svg" alt="Network++ export workflow preview" />
+            <figcaption>Export redacted request data into debugging, documentation, mock, and test artifacts.</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section class="privacy">
+        <div>
+          <p class="eyebrow">Local-first privacy</p>
+          <h2>Your network data stays in your browser.</h2>
+        </div>
+        <p>
+          Network++ avoids remote services. Captured data remains local, body capture is opt-in, and export redaction is enabled
+          by default so debugging artifacts are safer to share.
+        </p>
+      </section>
+
+      <section id="install" class="section install">
+        <div class="section-heading">
+          <p class="eyebrow">Install from source</p>
+          <h2>Run Network++ locally</h2>
+        </div>
+        <div class="install-grid">
+          <div class="terminal">
+            <pre><code>npm install
+npm run build</code></pre>
+          </div>
+          <ol>
+            <li>Open <code>chrome://extensions</code>.</li>
+            <li>Enable <code>Developer mode</code>.</li>
+            <li>Click <code>Load unpacked</code>.</li>
+            <li>Select <code>.output/chrome-mv3</code>.</li>
+            <li>Open DevTools and select the <code>Network++</code> panel.</li>
+          </ol>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>Network++ is open source under the MIT license.</p>
+      <a href="https://github.com/dvidev/network-plus-plus#readme" rel="noreferrer">Read the project README</a>
+    </footer>
+  </body>
+</html>
