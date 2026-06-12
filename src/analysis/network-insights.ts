@@ -6,6 +6,7 @@ export type DuplicateRequestGroup = {
   method: string;
   path: string;
   domain: string;
+  graphqlOperationName?: string;
   count: number;
   requestIds: string[];
   avgDurationMs?: number;
@@ -19,6 +20,8 @@ export type GraphQLOperationStat = {
   count: number;
   errorCount: number;
   batchedCount: number;
+  requestIds: string[];
+  errorRequestIds: string[];
   avgDurationMs?: number;
   maxDurationMs?: number;
 };
@@ -96,6 +99,8 @@ type GraphQLAccumulator = {
   count: number;
   errorCount: number;
   batchedCount: number;
+  requestIds: string[];
+  errorRequestIds: string[];
   durationTotalMs: number;
   durationCount: number;
   maxDurationMs?: number;
@@ -154,6 +159,18 @@ const operationsForRequest = (request: NetworkRequest): GraphQLInfo[] => {
   }
 
   return request.graphql.batched && request.graphql.operations?.length ? request.graphql.operations : [request.graphql];
+};
+
+const duplicateGraphQLOperationNameFor = (request: NetworkRequest): string | undefined => {
+  const operationNames = operationsForRequest(request)
+    .map((operation) => operation.operationName)
+    .filter((operationName): operationName is string => Boolean(operationName));
+
+  if (operationNames.length === 0) {
+    return undefined;
+  }
+
+  return operationNames.length === 1 ? operationNames[0] : `${operationNames[0]} +${operationNames.length - 1}`;
 };
 
 const hasHeader = (headers: Record<string, string>, name: string): boolean => Object.keys(headers).some((headerName) => headerName.toLowerCase() === name);
@@ -347,6 +364,10 @@ export const buildNetworkInsights = (requests: NetworkRequest[]): NetworkInsight
       if (existingOperation) {
         existingOperation.count += 1;
         existingOperation.errorCount += errorCount;
+        existingOperation.requestIds.push(request.id);
+        if (errorCount > 0) {
+          existingOperation.errorRequestIds.push(request.id);
+        }
         if (request.graphql?.batched) {
           existingOperation.batchedCount += 1;
         }
@@ -362,6 +383,8 @@ export const buildNetworkInsights = (requests: NetworkRequest[]): NetworkInsight
           count: 1,
           errorCount,
           batchedCount: request.graphql?.batched ? 1 : 0,
+          requestIds: [request.id],
+          errorRequestIds: errorCount > 0 ? [request.id] : [],
           durationTotalMs: duration ?? 0,
           durationCount: duration === undefined ? 0 : 1,
           maxDurationMs: duration
@@ -383,6 +406,7 @@ export const buildNetworkInsights = (requests: NetworkRequest[]): NetworkInsight
         method: accumulator.request.method,
         path: accumulator.request.path,
         domain: accumulator.request.domain,
+        graphqlOperationName: duplicateGraphQLOperationNameFor(accumulator.request),
         count: accumulator.requestIds.length,
         requestIds: accumulator.requestIds,
         avgDurationMs: averageDuration(accumulator.durationTotalMs, accumulator.durationCount),
@@ -399,6 +423,8 @@ export const buildNetworkInsights = (requests: NetworkRequest[]): NetworkInsight
       count: accumulator.count,
       errorCount: accumulator.errorCount,
       batchedCount: accumulator.batchedCount,
+      requestIds: accumulator.requestIds,
+      errorRequestIds: accumulator.errorRequestIds,
       avgDurationMs: averageDuration(accumulator.durationTotalMs, accumulator.durationCount),
       maxDurationMs: accumulator.maxDurationMs
     }))

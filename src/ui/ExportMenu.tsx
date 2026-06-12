@@ -1,3 +1,5 @@
+import { memo, useMemo } from 'react';
+
 import { exportRequestsAsCsv } from '../export/csv-export';
 import { exportRequestAsCurl } from '../export/curl-export';
 import { exportRequestsAsHar } from '../export/har-export';
@@ -16,17 +18,19 @@ type ExportMenuProps = {
 };
 
 type RequestContextMenuProps = {
-  allRequests: NetworkRequest[];
-  filteredRequests: NetworkRequest[];
   request: NetworkRequest;
   position: { x: number; y: number };
   onClose: () => void;
 };
 
 type ExportScope = 'all' | 'filtered';
+type ExportFormat = 'json' | 'csv' | 'har' | 'md' | 'msw.ts' | 'playwright.ts';
 
 const filename = (scope: ExportScope, extension: string): string =>
   `network-plus-plus-${scope}-${new Date().toISOString().replace(/[:.]/g, '-')}.${extension}`;
+
+const requestFilename = (request: NetworkRequest, extension: string): string =>
+  `network-plus-plus-request-${request.id}-${new Date().toISOString().replace(/[:.]/g, '-')}.${extension}`;
 
 const getRedactionOptions = (settings: Pick<Settings, 'redactExportsByDefault' | 'sensitiveFieldNames'>) => ({
   enabled: settings.redactExportsByDefault,
@@ -41,7 +45,7 @@ const getRequestsForScope = (scope: ExportScope, allRequests: NetworkRequest[], 
 const getExportContent = (
   requests: NetworkRequest[],
   redaction: ReturnType<typeof getRedactionOptions>,
-  format: 'json' | 'csv' | 'har' | 'md' | 'msw.ts' | 'playwright.ts'
+  format: ExportFormat
 ) =>
   format === 'json'
     ? exportRequestsAsJson(requests, redaction)
@@ -55,7 +59,7 @@ const getExportContent = (
             ? exportRequestsAsMsw(requests, redaction)
             : exportRequestsAsPlaywrightRoutes(requests, redaction);
 
-const getMimeType = (format: 'json' | 'csv' | 'har' | 'md' | 'msw.ts' | 'playwright.ts') =>
+const getMimeType = (format: ExportFormat) =>
   format === 'json' || format === 'har'
     ? 'application/json'
     : format === 'csv'
@@ -64,11 +68,15 @@ const getMimeType = (format: 'json' | 'csv' | 'har' | 'md' | 'msw.ts' | 'playwri
         ? 'text/markdown'
         : 'text/typescript';
 
-export const ExportMenu = ({ allRequests, filteredRequests, activeRequest }: ExportMenuProps) => {
-  const settings = useSettingsStore();
-  const redaction = getRedactionOptions(settings);
+export const ExportMenu = memo(function ExportMenu({ allRequests, filteredRequests, activeRequest }: ExportMenuProps) {
+  const redactExportsByDefault = useSettingsStore((state) => state.redactExportsByDefault);
+  const sensitiveFieldNames = useSettingsStore((state) => state.sensitiveFieldNames);
+  const redaction = useMemo(
+    () => getRedactionOptions({ redactExportsByDefault, sensitiveFieldNames }),
+    [redactExportsByDefault, sensitiveFieldNames]
+  );
 
-  const download = (scope: ExportScope, format: 'json' | 'csv' | 'har' | 'md' | 'msw.ts' | 'playwright.ts') => {
+  const download = (scope: ExportScope, format: ExportFormat) => {
     const requests = getRequestsForScope(scope, allRequests, filteredRequests);
     downloadTextFile(filename(scope, format), getExportContent(requests, redaction, format), getMimeType(format));
   };
@@ -102,18 +110,21 @@ export const ExportMenu = ({ allRequests, filteredRequests, activeRequest }: Exp
       <button type="button" className="secondary-button" onClick={() => void copyActiveCurl()} disabled={!activeRequest}>
         Copy cURL
       </button>
-      {settings.redactExportsByDefault ? <span className="redaction-pill">Redacted</span> : <span className="redaction-pill raw">Raw</span>}
+      {redactExportsByDefault ? <span className="redaction-pill">Redacted</span> : <span className="redaction-pill raw">Raw</span>}
     </div>
   );
-};
+});
 
-export const RequestContextMenu = ({ allRequests, filteredRequests, request, position, onClose }: RequestContextMenuProps) => {
-  const settings = useSettingsStore();
-  const redaction = getRedactionOptions(settings);
+export const RequestContextMenu = memo(function RequestContextMenu({ request, position, onClose }: RequestContextMenuProps) {
+  const redactExportsByDefault = useSettingsStore((state) => state.redactExportsByDefault);
+  const sensitiveFieldNames = useSettingsStore((state) => state.sensitiveFieldNames);
+  const redaction = useMemo(
+    () => getRedactionOptions({ redactExportsByDefault, sensitiveFieldNames }),
+    [redactExportsByDefault, sensitiveFieldNames]
+  );
 
-  const download = (scope: ExportScope, format: 'json' | 'csv' | 'har' | 'md' | 'msw.ts' | 'playwright.ts') => {
-    const requests = getRequestsForScope(scope, allRequests, filteredRequests);
-    downloadTextFile(filename(scope, format), getExportContent(requests, redaction, format), getMimeType(format));
+  const download = (format: ExportFormat) => {
+    downloadTextFile(requestFilename(request, format), getExportContent([request], redaction, format), getMimeType(format));
     onClose();
   };
 
@@ -126,24 +137,24 @@ export const RequestContextMenu = ({ allRequests, filteredRequests, request, pos
     <div className="request-context-menu" style={{ left: position.x, top: position.y }} role="menu" aria-label="Request options">
       <div className="request-context-menu-header">
         <span>Request options</span>
-        {settings.redactExportsByDefault ? <span className="redaction-pill">Redacted</span> : <span className="redaction-pill raw">Raw</span>}
+        {redactExportsByDefault ? <span className="redaction-pill">Redacted</span> : <span className="redaction-pill raw">Raw</span>}
       </div>
-      <button type="button" className="request-context-menu-item" onClick={() => download('filtered', 'json')} disabled={filteredRequests.length === 0}>
-        Filtered JSON
+      <button type="button" className="request-context-menu-item" onClick={() => download('json')}>
+        JSON
       </button>
-      <button type="button" className="request-context-menu-item" onClick={() => download('filtered', 'csv')} disabled={filteredRequests.length === 0}>
+      <button type="button" className="request-context-menu-item" onClick={() => download('csv')}>
         CSV
       </button>
-      <button type="button" className="request-context-menu-item" onClick={() => download('filtered', 'har')} disabled={filteredRequests.length === 0}>
+      <button type="button" className="request-context-menu-item" onClick={() => download('har')}>
         HAR
       </button>
-      <button type="button" className="request-context-menu-item" onClick={() => download('all', 'md')} disabled={allRequests.length === 0}>
+      <button type="button" className="request-context-menu-item" onClick={() => download('md')}>
         Markdown
       </button>
-      <button type="button" className="request-context-menu-item" onClick={() => download('filtered', 'msw.ts')} disabled={filteredRequests.length === 0}>
+      <button type="button" className="request-context-menu-item" onClick={() => download('msw.ts')}>
         MSW
       </button>
-      <button type="button" className="request-context-menu-item" onClick={() => download('filtered', 'playwright.ts')} disabled={filteredRequests.length === 0}>
+      <button type="button" className="request-context-menu-item" onClick={() => download('playwright.ts')}>
         Playwright
       </button>
       <button type="button" className="request-context-menu-item" onClick={() => void copyRequestCurl()}>
@@ -151,4 +162,4 @@ export const RequestContextMenu = ({ allRequests, filteredRequests, request, pos
       </button>
     </div>
   );
-};
+});

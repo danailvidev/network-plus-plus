@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type DragEvent, type MouseEvent } from 'react';
+import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type MouseEvent, type PointerEvent } from 'react';
 import {
   flexRender,
   getCoreRowModel,
@@ -21,7 +21,6 @@ import { useCloseMenuOnOutsideClick } from './useCloseMenuOnOutsideClick';
 
 type NetworkTableProps = {
   requests: NetworkRequest[];
-  allRequests: NetworkRequest[];
   colorEnabled: boolean;
   selectedColorTones: ReadonlySet<ColorTone>;
   duplicateRequestCounts: ReadonlyMap<string, number>;
@@ -61,12 +60,56 @@ type RequestContextMenuState = {
   position: { x: number; y: number };
 };
 
+type ScrollMetrics = {
+  scrollTop: number;
+  scrollHeight: number;
+  clientHeight: number;
+};
+
+type ScrollbarDragState = {
+  pointerId: number;
+  thumbOffsetY: number;
+};
+
 const StatusBadge = ({ request }: { request: NetworkRequest }) => {
   const status = request.status ?? 'ERR';
   return <span className={`status-badge status-${request.status ? Math.floor(request.status / 100) : 'err'}`}>{status}</span>;
 };
 
-const MethodIcon = ({ method }: { method: string }) => {
+const getGraphQLOperationLabel = (request: NetworkRequest) => {
+  const operationType = request.graphql?.operationType;
+  const operationName = request.graphql?.operationName ?? 'GraphQL';
+
+  if (!operationType) {
+    return {
+      badge: 'G',
+      title: operationName,
+      className: 'gql-operation-unknown'
+    };
+  }
+
+  return {
+    badge: operationType[0]?.toUpperCase() ?? 'G',
+    title: operationName,
+    className: `gql-operation-${operationType}`
+  };
+};
+
+const MethodIcon = ({ request }: { request: NetworkRequest }) => {
+  if (request.graphql) {
+    const operation = getGraphQLOperationLabel(request);
+    const operationType = request.graphql.operationType ?? 'operation';
+    const title = `GraphQL ${operationType}: ${operation.title}`;
+
+    return (
+      <span className="graphql-method" title={title} aria-label={title}>
+        <span className={`graphql-method-badge ${operation.className}`}>{operation.badge}</span>
+        <span className="graphql-method-name">{operation.title}</span>
+      </span>
+    );
+  }
+
+  const method = request.method;
   const normalizedMethod = method.toUpperCase();
   const path =
     normalizedMethod === 'POST'
@@ -106,9 +149,12 @@ const TagList = ({ request, duplicateCount, insightCount }: { request: NetworkRe
   </div>
 );
 
-export const NetworkTable = ({ requests, allRequests, colorEnabled, selectedColorTones, duplicateRequestCounts, requestInsightCounts }: NetworkTableProps) => {
+export const NetworkTable = memo(function NetworkTable({ requests, colorEnabled, selectedColorTones, duplicateRequestCounts, requestInsightCounts }: NetworkTableProps) {
   const tableRef = useRef<HTMLDivElement>(null);
   const parentRef = useRef<HTMLDivElement>(null);
+  const verticalScrollbarRef = useRef<HTMLDivElement>(null);
+  const verticalScrollbarThumbRef = useRef<HTMLDivElement>(null);
+  const scrollbarDragRef = useRef<ScrollbarDragState | undefined>(undefined);
   const columnMenuRef = useRef<HTMLDivElement>(null);
   const requestContextMenuRef = useRef<HTMLDivElement>(null);
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -120,6 +166,11 @@ export const NetworkTable = ({ requests, allRequests, colorEnabled, selectedColo
   const setActiveRequestId = useRequestsStore((state) => state.setActiveRequestId);
   const [columnMenuOpen, setColumnMenuOpen] = useState(false);
   const [requestContextMenu, setRequestContextMenu] = useState<RequestContextMenuState | undefined>();
+  const [bodyScrollMetrics, setBodyScrollMetrics] = useState<ScrollMetrics>({
+    scrollTop: 0,
+    scrollHeight: 0,
+    clientHeight: 0
+  });
 
   useCloseMenuOnOutsideClick(columnMenuRef, columnMenuOpen, () => setColumnMenuOpen(false));
   useCloseMenuOnOutsideClick(requestContextMenuRef, Boolean(requestContextMenu), () => setRequestContextMenu(undefined));
@@ -129,8 +180,8 @@ export const NetworkTable = ({ requests, allRequests, colorEnabled, selectedColo
       {
         accessorKey: 'method',
         header: 'Method',
-        size: 58,
-        cell: ({ row }) => <MethodIcon method={row.original.method} />
+        size: 150,
+        cell: ({ row }) => <MethodIcon request={row.original} />
       },
       {
         id: 'status',
@@ -366,6 +417,138 @@ export const NetworkTable = ({ requests, allRequests, colorEnabled, selectedColo
     overscan: 16
   });
   const totalWidth = table.getTotalSize();
+  const latestRequestId = requests.at(-1)?.id;
+  const hasVerticalOverflow = bodyScrollMetrics.scrollHeight - bodyScrollMetrics.clientHeight > 1;
+  const scrollbarTrackHeight = Math.max(0, bodyScrollMetrics.clientHeight);
+  const scrollbarThumbHeight = hasVerticalOverflow
+    ? Math.max(24, Math.min(scrollbarTrackHeight, (bodyScrollMetrics.clientHeight / bodyScrollMetrics.scrollHeight) * scrollbarTrackHeight))
+    : scrollbarTrackHeight;
+  const scrollbarMaxThumbOffset = Math.max(0, scrollbarTrackHeight - scrollbarThumbHeight);
+  const scrollbarMaxScrollTop = Math.max(0, bodyScrollMetrics.scrollHeight - bodyScrollMetrics.clientHeight);
+  const scrollbarThumbTop = scrollbarMaxScrollTop > 0 ? (bodyScrollMetrics.scrollTop / scrollbarMaxScrollTop) * scrollbarMaxThumbOffset : 0;
+  const verticalScrollbarStyle = {
+    '--table-scrollbar-thumb-height': `${scrollbarThumbHeight}px`,
+    '--table-scrollbar-thumb-top': `${scrollbarThumbTop}px`
+  } as CSSProperties;
+
+  const updateBodyScrollMetrics = useCallback(() => {
+    const scrollElement = parentRef.current;
+    if (!scrollElement) {
+      return;
+    }
+
+    const nextMetrics: ScrollMetrics = {
+      scrollTop: scrollElement.scrollTop,
+      scrollHeight: scrollElement.scrollHeight,
+      clientHeight: scrollElement.clientHeight
+    };
+
+    setBodyScrollMetrics((currentMetrics) =>
+      currentMetrics.scrollTop === nextMetrics.scrollTop &&
+      currentMetrics.scrollHeight === nextMetrics.scrollHeight &&
+      currentMetrics.clientHeight === nextMetrics.clientHeight
+        ? currentMetrics
+        : nextMetrics
+    );
+  }, []);
+
+  const scrollToScrollbarPointer = useCallback(
+    (clientY: number, thumbOffsetY: number) => {
+      const scrollElement = parentRef.current;
+      const scrollbarElement = verticalScrollbarRef.current;
+      if (!scrollElement || !scrollbarElement || !hasVerticalOverflow || scrollbarMaxThumbOffset === 0) {
+        return;
+      }
+
+      const scrollbarRect = scrollbarElement.getBoundingClientRect();
+      const nextThumbTop = Math.min(scrollbarMaxThumbOffset, Math.max(0, clientY - scrollbarRect.top - thumbOffsetY));
+      scrollElement.scrollTop = (nextThumbTop / scrollbarMaxThumbOffset) * scrollbarMaxScrollTop;
+      updateBodyScrollMetrics();
+    },
+    [hasVerticalOverflow, scrollbarMaxScrollTop, scrollbarMaxThumbOffset, updateBodyScrollMetrics]
+  );
+
+  const startVerticalScrollbarDrag = (event: PointerEvent<HTMLDivElement>) => {
+    if (!hasVerticalOverflow) {
+      return;
+    }
+
+    event.preventDefault();
+    const thumbRect = verticalScrollbarThumbRef.current?.getBoundingClientRect();
+    const clickedThumb = event.target === verticalScrollbarThumbRef.current;
+    const thumbOffsetY = clickedThumb && thumbRect ? event.clientY - thumbRect.top : scrollbarThumbHeight / 2;
+
+    scrollbarDragRef.current = {
+      pointerId: event.pointerId,
+      thumbOffsetY
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    scrollToScrollbarPointer(event.clientY, thumbOffsetY);
+  };
+
+  const moveVerticalScrollbarDrag = (event: PointerEvent<HTMLDivElement>) => {
+    const dragState = scrollbarDragRef.current;
+    if (!dragState || dragState.pointerId !== event.pointerId) {
+      return;
+    }
+
+    event.preventDefault();
+    scrollToScrollbarPointer(event.clientY, dragState.thumbOffsetY);
+  };
+
+  const endVerticalScrollbarDrag = (event: PointerEvent<HTMLDivElement>) => {
+    const dragState = scrollbarDragRef.current;
+    if (!dragState || dragState.pointerId !== event.pointerId) {
+      return;
+    }
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    scrollbarDragRef.current = undefined;
+  };
+
+  useLayoutEffect(() => {
+    if (!latestRequestId || rows.length === 0) {
+      return undefined;
+    }
+
+    const latestRowIndex = rows.findIndex((row) => row.original.id === latestRequestId);
+    if (latestRowIndex === -1) {
+      return undefined;
+    }
+
+    rowVirtualizer.scrollToIndex(latestRowIndex, { align: 'end' });
+    const frameId = window.requestAnimationFrame(() => {
+      const scrollElement = parentRef.current;
+      if (!scrollElement) {
+        return;
+      }
+
+      scrollElement.scrollTop = scrollElement.scrollHeight;
+      updateBodyScrollMetrics();
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [latestRequestId, rowVirtualizer, rows, updateBodyScrollMetrics]);
+
+  useLayoutEffect(() => {
+    updateBodyScrollMetrics();
+
+    const scrollElement = parentRef.current;
+    if (!scrollElement) {
+      return undefined;
+    }
+
+    const resizeObserver = new ResizeObserver(updateBodyScrollMetrics);
+    resizeObserver.observe(scrollElement);
+
+    if (scrollElement.firstElementChild) {
+      resizeObserver.observe(scrollElement.firstElementChild);
+    }
+
+    return () => resizeObserver.disconnect();
+  }, [rowVirtualizer, rows.length, totalWidth, updateBodyScrollMetrics]);
 
   return (
     <div className={`network-table ${colorEnabled ? 'coloring-enabled' : ''}`} ref={tableRef}>
@@ -436,7 +619,7 @@ export const NetworkTable = ({ requests, allRequests, colorEnabled, selectedColo
         ))}
       </div>
 
-      <div className="table-body" ref={parentRef}>
+      <div className={`table-body ${hasVerticalOverflow ? 'is-vertically-scrollable' : ''}`} ref={parentRef} onScroll={updateBodyScrollMetrics}>
         {rows.length === 0 ? (
           <div className="empty-state">No requests match the current filters.</div>
         ) : (
@@ -467,11 +650,24 @@ export const NetworkTable = ({ requests, allRequests, colorEnabled, selectedColo
           </div>
         )}
       </div>
+      <div
+        className={`table-vertical-scrollbar ${hasVerticalOverflow ? 'is-scrollable' : ''}`}
+        ref={verticalScrollbarRef}
+        aria-hidden="true"
+        style={verticalScrollbarStyle}
+        onPointerDown={startVerticalScrollbarDrag}
+        onPointerMove={moveVerticalScrollbarDrag}
+        onPointerUp={endVerticalScrollbarDrag}
+        onPointerCancel={endVerticalScrollbarDrag}
+        onLostPointerCapture={() => {
+          scrollbarDragRef.current = undefined;
+        }}
+      >
+        <div className="table-vertical-scrollbar-thumb" ref={verticalScrollbarThumbRef} />
+      </div>
       {requestContextMenu ? (
         <div ref={requestContextMenuRef}>
           <RequestContextMenu
-            allRequests={allRequests}
-            filteredRequests={requests}
             request={requestContextMenu.request}
             position={requestContextMenu.position}
             onClose={() => setRequestContextMenu(undefined)}
@@ -480,4 +676,4 @@ export const NetworkTable = ({ requests, allRequests, colorEnabled, selectedColo
       ) : null}
     </div>
   );
-};
+});

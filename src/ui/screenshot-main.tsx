@@ -104,9 +104,7 @@ document.documentElement.dataset.screenshotView = screenshotView;
 
 useRequestsStore.setState({
   requests: screenshotRequests,
-  activeRequestId: 'demo-checkout-timeout',
-  selectedIds: new Set(['demo-checkout-timeout']),
-  paused: false
+  activeRequestId: 'demo-checkout-timeout'
 });
 
 const root = document.getElementById('root');

@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import type { NetworkRequest } from '../network/request-model';
 
 export const COLOR_TONES = [
@@ -34,14 +36,16 @@ type ColorLegendProps = {
   onToggleTone: (tone: ColorTone) => void;
 };
 
-export const ColorLegend = ({ selectedTones, onToggleTone }: ColorLegendProps) => (
-  <div className="color-legend" aria-label="Color legend">
-    {COLOR_TONES.map(([tone, label]) => (
-      <label key={tone} className={`color-chip ${selectedTones.has(tone) ? 'selected' : ''}`}>
-        <input type="checkbox" checked={selectedTones.has(tone)} onChange={() => onToggleTone(tone)} />
-        <i className={`legend-swatch tone-${tone}`} />
-        <span>{label}</span>
-      </label>
-    ))}
-  </div>
-);
+export const ColorLegend = memo(function ColorLegend({ selectedTones, onToggleTone }: ColorLegendProps) {
+  return (
+    <div className="color-legend" aria-label="Color legend">
+      {COLOR_TONES.map(([tone, label]) => (
+        <label key={tone} className={`color-chip ${selectedTones.has(tone) ? 'selected' : ''}`}>
+          <input type="checkbox" checked={selectedTones.has(tone)} onChange={() => onToggleTone(tone)} />
+          <i className={`legend-swatch tone-${tone}`} />
+          <span>{label}</span>
+        </label>
+      ))}
+    </div>
+  );
+});

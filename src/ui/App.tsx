@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
 
-import { buildNetworkInsights } from '../analysis/network-insights';
+import { buildNetworkInsights, type NetworkInsights } from '../analysis/network-insights';
 import { DevtoolsNetworkCapture } from '../network/capture';
 import { isFetchXhrRequest, type NetworkRequest } from '../network/request-model';
 import { parseSearchQuery, type ComparisonOperator, type SearchToken } from '../search/parser';
@@ -9,7 +9,7 @@ import { useSettingsStore } from '../state/settings-store';
 import { COLOR_TONES, ColorLegend, getRequestColorTone, type ColorTone } from './ColorLegend';
 import { ExportMenu } from './ExportMenu';
 import { CogIcon } from './icons';
-import { InsightsPanel } from './InsightsPanel';
+import { InsightsPanel, type InsightSummaryFilterId } from './InsightsPanel';
 import { NetworkTable } from './NetworkTable';
 import { RequestDetails } from './RequestDetails';
 import { useCloseMenuOnOutsideClick } from './useCloseMenuOnOutsideClick';
@@ -56,7 +56,30 @@ const decodeHarText = (text: string | undefined, encoding: string | undefined): 
 const getResponseBodyText = (request: NetworkRequest): string =>
   request.responseBody ?? decodeHarText(request.rawHarEntry?.response.content?.text, request.rawHarEntry?.response.content?.encoding) ?? '';
 
+const TRUE_VALUES = new Set(['true', 'yes', '1']);
+const FALSE_VALUES = new Set(['false', 'no', '0']);
+
 const includesValue = (source: unknown, query: string): boolean => String(source ?? '').toLowerCase().includes(query.toLowerCase());
+
+const includesGraphQLValue = (request: NetworkRequest, query: string): boolean =>
+  [
+    request.graphql?.operationName,
+    request.graphql?.operationType,
+    request.graphql ? 'graphql gql' : undefined,
+    request.graphql?.errors?.length ? 'graphql errors' : undefined
+  ].some((source) => includesValue(source, query));
+
+const matchesGraphQLToken = (request: NetworkRequest, query: string): boolean => {
+  if (TRUE_VALUES.has(query)) {
+    return Boolean(request.graphql);
+  }
+
+  if (FALSE_VALUES.has(query)) {
+    return !request.graphql;
+  }
+
+  return includesGraphQLValue(request, query);
+};
 
 const compareStatus = (status: number | null, operator: ComparisonOperator | undefined, expected: number): boolean => {
   if (status === null || !Number.isFinite(expected)) {
@@ -129,6 +152,9 @@ const matchesFilterToken = (request: NetworkRequest, token: SearchToken): boolea
         request.method,
         request.status,
         request.statusText,
+        request.graphql?.operationName,
+        request.graphql?.operationType,
+        request.graphql ? 'graphql gql' : undefined,
         request.status === null || request.failed ? 'failed error err' : undefined
       ].some((source) => includesValue(source, normalizedValue));
       break;
@@ -145,6 +171,21 @@ const matchesFilterToken = (request: NetworkRequest, token: SearchToken): boolea
     case 'status':
       matched = matchesStatusToken(request, token);
       break;
+    case 'graphql':
+    case 'gql':
+      matched = matchesGraphQLToken(request, normalizedValue);
+      break;
+    case 'operation':
+    case 'operationname':
+    case 'operation-name':
+    case 'gql.name':
+      matched = includesValue(request.graphql?.operationName, normalizedValue);
+      break;
+    case 'operationtype':
+    case 'operation-type':
+    case 'gql.type':
+      matched = includesValue(request.graphql?.operationType, normalizedValue);
+      break;
     default:
       matched = false;
   }
@@ -153,6 +194,30 @@ const matchesFilterToken = (request: NetworkRequest, token: SearchToken): boolea
 };
 
 const matchesRequestFilter = (request: NetworkRequest, tokens: SearchToken[]): boolean => tokens.every((token) => matchesFilterToken(request, token));
+
+const addInsightSummaryFilterRequestIds = (filterId: InsightSummaryFilterId, insights: NetworkInsights, requestIds: Set<string>) => {
+  switch (filterId) {
+    case 'duplicate-groups':
+    case 'repeated-requests':
+      insights.duplicateRequestCounts.forEach((_, requestId) => requestIds.add(requestId));
+      return;
+    case 'graphql':
+      insights.graphqlOperations.forEach((operation) => operation.requestIds.forEach((requestId) => requestIds.add(requestId)));
+      return;
+    case 'graphql-errors':
+      insights.graphqlOperations.forEach((operation) => operation.errorRequestIds.forEach((requestId) => requestIds.add(requestId)));
+      return;
+    case 'error-clusters':
+      insights.errorClusters.forEach((cluster) => cluster.requestIds.forEach((requestId) => requestIds.add(requestId)));
+      return;
+    case 'sensitive':
+      insights.sensitiveFindings.forEach((finding) => requestIds.add(finding.requestId));
+      return;
+    case 'schema':
+      insights.schemaDrifts.forEach((drift) => drift.requestIds.forEach((requestId) => requestIds.add(requestId)));
+      return;
+  }
+};
 
 export const App = () => {
   const workspaceRef = useRef<HTMLElement>(null);
@@ -172,14 +237,21 @@ export const App = () => {
   const [coloringEnabled, setColoringEnabled] = useState(false);
   const [coloringMenuOpen, setColoringMenuOpen] = useState(false);
   const [selectedColorTones, setSelectedColorTones] = useState<ReadonlySet<ColorTone>>(() => new Set(COLOR_TONES.map(([tone]) => tone)));
+  const [activeInsightFilters, setActiveInsightFilters] = useState<ReadonlySet<InsightSummaryFilterId>>(() => new Set());
+  const [activeOperationFilters, setActiveOperationFilters] = useState<ReadonlySet<string>>(() => new Set());
+  const [activeDuplicateFilters, setActiveDuplicateFilters] = useState<ReadonlySet<string>>(() => new Set());
   const requests = useRequestsStore((state) => state.requests);
   const activeRequestId = useRequestsStore((state) => state.activeRequestId);
   const clearRequests = useRequestsStore((state) => state.clearRequests);
-  const settings = useSettingsStore();
+  const settingsHydrated = useSettingsStore((state) => state.hydrated);
+  const hydrateSettings = useSettingsStore((state) => state.hydrate);
+  const bodyCaptureEnabled = useSettingsStore((state) => state.bodyCaptureEnabled);
+  const preserveLogOnReload = useSettingsStore((state) => state.preserveLogOnReload);
+  const updateSettings = useSettingsStore((state) => state.updateSettings);
 
   useEffect(() => {
-    void settings.hydrate();
-  }, []);
+    void hydrateSettings();
+  }, [hydrateSettings]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(max-width: 1100px)');
@@ -196,7 +268,7 @@ export const App = () => {
   }, [hasCustomDetailsLayout]);
 
   useEffect(() => {
-    if (!settings.hydrated) {
+    if (!settingsHydrated) {
       return undefined;
     }
 
@@ -231,15 +303,18 @@ export const App = () => {
         window.cancelAnimationFrame(flushFrameId);
       }
     };
-  }, [settings.hydrated]);
+  }, [settingsHydrated]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => setDebouncedFilterQuery(filterQuery), FILTER_DEBOUNCE_MS);
     return () => window.clearTimeout(timeoutId);
   }, [filterQuery]);
 
-  useCloseMenuOnOutsideClick(filterMenuRef, filterMenuOpen, () => setFilterMenuOpen(false));
-  useCloseMenuOnOutsideClick(coloringMenuRef, coloringMenuOpen, () => setColoringMenuOpen(false));
+  const closeFilterMenu = useCallback(() => setFilterMenuOpen(false), []);
+  const closeColoringMenu = useCallback(() => setColoringMenuOpen(false), []);
+
+  useCloseMenuOnOutsideClick(filterMenuRef, filterMenuOpen, closeFilterMenu);
+  useCloseMenuOnOutsideClick(coloringMenuRef, coloringMenuOpen, closeColoringMenu);
 
   const fetchXhrRequests = useMemo(() => requests.filter(isFetchXhrRequest), [requests]);
   const textFilteredRequests = useMemo(() => {
@@ -258,7 +333,7 @@ export const App = () => {
       return matchesRequestFilter(request, filterTokens);
     });
   }, [debouncedFilterQuery, fetchXhrRequests, filterMode]);
-  const visibleRequests = useMemo(() => {
+  const baseVisibleRequests = useMemo(() => {
     if (!coloringEnabled || selectedColorTones.size === COLOR_TONES.length) {
       return textFilteredRequests;
     }
@@ -268,7 +343,26 @@ export const App = () => {
       return tone !== undefined && selectedColorTones.has(tone);
     });
   }, [coloringEnabled, selectedColorTones, textFilteredRequests]);
-  const insights = useMemo(() => buildNetworkInsights(visibleRequests), [visibleRequests]);
+  const insights = useMemo(() => buildNetworkInsights(baseVisibleRequests), [baseVisibleRequests]);
+  const activeInsightRequestIds = useMemo(() => {
+    if (activeInsightFilters.size === 0 && activeOperationFilters.size === 0 && activeDuplicateFilters.size === 0) {
+      return undefined;
+    }
+
+    const requestIds = new Set<string>();
+    activeInsightFilters.forEach((filterId) => addInsightSummaryFilterRequestIds(filterId, insights, requestIds));
+    insights.duplicateGroups
+      .filter((group) => activeDuplicateFilters.has(group.key))
+      .forEach((group) => group.requestIds.forEach((requestId) => requestIds.add(requestId)));
+    insights.graphqlOperations
+      .filter((operation) => activeOperationFilters.has(operation.key))
+      .forEach((operation) => operation.requestIds.forEach((requestId) => requestIds.add(requestId)));
+    return requestIds;
+  }, [activeDuplicateFilters, activeInsightFilters, activeOperationFilters, insights]);
+  const visibleRequests = useMemo(
+    () => (activeInsightRequestIds ? baseVisibleRequests.filter((request) => activeInsightRequestIds.has(request.id)) : baseVisibleRequests),
+    [activeInsightRequestIds, baseVisibleRequests]
+  );
   const activeRequest = useMemo(() => fetchXhrRequests.find((request) => request.id === activeRequestId), [activeRequestId, fetchXhrRequests]);
 
   const failedCount = useMemo(
@@ -397,12 +491,12 @@ export const App = () => {
     setDetailsSizePercent((size) => clampDetailsSize(size + delta));
   };
 
-  const toggleDetailsLayout = () => {
+  const toggleDetailsLayout = useCallback(() => {
     setHasCustomDetailsLayout(true);
     setDetailsLayout((currentLayout) => (currentLayout === 'bottom' ? 'side' : 'bottom'));
-  };
+  }, []);
 
-  const toggleColorTone = (tone: ColorTone) => {
+  const toggleColorTone = useCallback((tone: ColorTone) => {
     setSelectedColorTones((currentTones) => {
       const nextTones = new Set(currentTones);
       if (nextTones.has(tone)) {
@@ -413,7 +507,43 @@ export const App = () => {
 
       return nextTones;
     });
-  };
+  }, []);
+  const toggleInsightFilter = useCallback((filterId: InsightSummaryFilterId) => {
+    setActiveInsightFilters((currentFilters) => {
+      const nextFilters = new Set(currentFilters);
+      if (nextFilters.has(filterId)) {
+        nextFilters.delete(filterId);
+      } else {
+        nextFilters.add(filterId);
+      }
+
+      return nextFilters;
+    });
+  }, []);
+  const toggleOperationFilter = useCallback((operationKey: string) => {
+    setActiveOperationFilters((currentFilters) => {
+      const nextFilters = new Set(currentFilters);
+      if (nextFilters.has(operationKey)) {
+        nextFilters.delete(operationKey);
+      } else {
+        nextFilters.add(operationKey);
+      }
+
+      return nextFilters;
+    });
+  }, []);
+  const toggleDuplicateFilter = useCallback((groupKey: string) => {
+    setActiveDuplicateFilters((currentFilters) => {
+      const nextFilters = new Set(currentFilters);
+      if (nextFilters.has(groupKey)) {
+        nextFilters.delete(groupKey);
+      } else {
+        nextFilters.add(groupKey);
+      }
+
+      return nextFilters;
+    });
+  }, []);
 
   return (
     <main className="app-shell">
@@ -453,7 +583,7 @@ export const App = () => {
           <input
             type="search"
             value={filterQuery}
-            placeholder={filterMode === 'search' ? 'Search response bodies...' : 'Filter by URL, method, or status...'}
+            placeholder={filterMode === 'search' ? 'Search response bodies...' : 'Filter by URL, method, status, or operation...'}
             onChange={(event) => setFilterQuery(event.target.value)}
           />
         </div>
@@ -464,16 +594,16 @@ export const App = () => {
           <label className="toggle compact-toggle" title="Capture response bodies for new requests">
             <input
               type="checkbox"
-              checked={settings.bodyCaptureEnabled}
-              onChange={(event) => void settings.updateSettings({ bodyCaptureEnabled: event.target.checked })}
+              checked={bodyCaptureEnabled}
+              onChange={(event) => void updateSettings({ bodyCaptureEnabled: event.target.checked })}
             />
             Capture bodies
           </label>
           <label className="toggle compact-toggle" title="Keep captured requests when the inspected page reloads">
             <input
               type="checkbox"
-              checked={settings.preserveLogOnReload}
-              onChange={(event) => void settings.updateSettings({ preserveLogOnReload: event.target.checked })}
+              checked={preserveLogOnReload}
+              onChange={(event) => void updateSettings({ preserveLogOnReload: event.target.checked })}
             />
             Preserve log
           </label>
@@ -520,10 +650,18 @@ export const App = () => {
               </div>
             </div>
           </div>
-          <InsightsPanel insights={insights} />
+          <InsightsPanel
+            insights={insights}
+            requestCount={visibleRequests.length}
+            activeSummaryFilters={activeInsightFilters}
+            onToggleSummaryFilter={toggleInsightFilter}
+            activeOperationFilters={activeOperationFilters}
+            onToggleOperationFilter={toggleOperationFilter}
+            activeDuplicateFilters={activeDuplicateFilters}
+            onToggleDuplicateFilter={toggleDuplicateFilter}
+          />
           <NetworkTable
             requests={visibleRequests}
-            allRequests={fetchXhrRequests}
             colorEnabled={coloringEnabled}
             selectedColorTones={selectedColorTones}
             duplicateRequestCounts={insights.duplicateRequestCounts}

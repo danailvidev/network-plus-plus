@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from 'react';
+import { memo, useRef, useState, type ReactNode } from 'react';
 
 import type { NetworkInsights } from '../analysis/network-insights';
 import { formatDuration } from '../utils/format';
@@ -7,6 +7,13 @@ import { useCloseMenuOnOutsideClick } from './useCloseMenuOnOutsideClick';
 
 type InsightsPanelProps = {
   insights: NetworkInsights;
+  requestCount: number;
+  activeSummaryFilters?: ReadonlySet<InsightSummaryFilterId>;
+  onToggleSummaryFilter?: (filterId: InsightSummaryFilterId) => void;
+  activeOperationFilters?: ReadonlySet<string>;
+  onToggleOperationFilter?: (operationKey: string) => void;
+  activeDuplicateFilters?: ReadonlySet<string>;
+  onToggleDuplicateFilter?: (groupKey: string) => void;
 };
 
 const MAX_ITEMS = 3;
@@ -22,6 +29,7 @@ const INSIGHT_FEATURES = [
 ] as const;
 
 type InsightFeatureId = (typeof INSIGHT_FEATURES)[number]['id'];
+export type InsightSummaryFilterId = 'duplicate-groups' | 'repeated-requests' | 'graphql' | 'graphql-errors' | 'error-clusters' | 'sensitive' | 'schema';
 
 type InsightCardProps = {
   title: string;
@@ -35,8 +43,18 @@ const InsightCard = ({ title, children }: InsightCardProps) => (
   </div>
 );
 
-export const InsightsPanel = ({ insights }: InsightsPanelProps) => {
+export const InsightsPanel = memo(function InsightsPanel({
+  insights,
+  requestCount,
+  activeSummaryFilters,
+  onToggleSummaryFilter,
+  activeOperationFilters,
+  onToggleOperationFilter,
+  activeDuplicateFilters,
+  onToggleDuplicateFilter
+}: InsightsPanelProps) {
   const featureMenuRef = useRef<HTMLDivElement>(null);
+  const [collapsed, setCollapsed] = useState(false);
   const [featureMenuOpen, setFeatureMenuOpen] = useState(false);
   const [enabledFeatures, setEnabledFeatures] = useState<ReadonlySet<InsightFeatureId>>(() => new Set(INSIGHT_FEATURES.map((feature) => feature.id)));
   const isEnabled = (feature: InsightFeatureId): boolean => enabledFeatures.has(feature);
@@ -55,6 +73,7 @@ export const InsightsPanel = ({ insights }: InsightsPanelProps) => {
     insights.sensitiveFindings.length > 0 ||
     insights.cacheInsights.length > 0 ||
     insights.schemaDrifts.length > 0;
+  const isInitialEmpty = requestCount === 0 && !hasAvailableInsights;
   const hasVisibleInsights =
     duplicateGroups.length > 0 ||
     graphqlOperations.length > 0 ||
@@ -66,7 +85,7 @@ export const InsightsPanel = ({ insights }: InsightsPanelProps) => {
 
   useCloseMenuOnOutsideClick(featureMenuRef, featureMenuOpen, () => setFeatureMenuOpen(false));
 
-  if (!hasAvailableInsights) {
+  if (!hasAvailableInsights && !isInitialEmpty) {
     return null;
   }
 
@@ -82,143 +101,204 @@ export const InsightsPanel = ({ insights }: InsightsPanelProps) => {
       return nextFeatures;
     });
   };
+  const summaryChipClassName = (filterId: InsightSummaryFilterId) =>
+    activeSummaryFilters?.has(filterId) ? 'insight-summary-chip active' : 'insight-summary-chip';
+  const renderSummaryChip = (filterId: InsightSummaryFilterId, label: string) => (
+    <button
+      type="button"
+      className={summaryChipClassName(filterId)}
+      role="checkbox"
+      aria-checked={activeSummaryFilters?.has(filterId) ?? false}
+      onClick={() => onToggleSummaryFilter?.(filterId)}
+    >
+      {label}
+    </button>
+  );
 
   return (
-    <section className="insights-panel" aria-label="Network insights">
+    <section className={`insights-panel ${collapsed ? 'collapsed' : ''} ${isInitialEmpty ? 'initial-empty' : ''}`} aria-label="Network insights">
       <div className="insight-toolbar">
         <div className="insight-summary">
-          {isEnabled('duplicates') ? (
+          {isInitialEmpty ? <span>Waiting for requests</span> : null}
+          {!isInitialEmpty && isEnabled('duplicates') ? (
             <>
-              <span>{insights.duplicateGroups.length} duplicate groups</span>
-              <span>{insights.duplicateRequestCount} repeated requests</span>
+              {renderSummaryChip('duplicate-groups', `${insights.duplicateGroups.length} duplicate groups`)}
+              {renderSummaryChip('repeated-requests', `${insights.duplicateRequestCount} repeated requests`)}
             </>
           ) : null}
-          {isEnabled('graphql') && insights.graphqlOperations.length > 0 ? (
+          {!isInitialEmpty && isEnabled('graphql') && insights.graphqlOperations.length > 0 ? (
             <>
-              <span>{insights.graphqlOperations.length} GraphQL operations</span>
-              <span>{insights.graphqlErrorOperationCount} with errors</span>
+              {renderSummaryChip('graphql', `${insights.graphqlOperations.length} GraphQL operations`)}
+              {renderSummaryChip('graphql-errors', `${insights.graphqlErrorOperationCount} with errors`)}
             </>
           ) : null}
-          {isEnabled('errors') ? <span>{insights.errorClusters.length} error clusters</span> : null}
-          {isEnabled('sensitive') ? <span>{insights.sensitiveFindings.length} sensitive hits</span> : null}
-          {isEnabled('schema') ? <span>{insights.schemaDrifts.length} schema drifts</span> : null}
+          {!isInitialEmpty && isEnabled('errors') ? renderSummaryChip('error-clusters', `${insights.errorClusters.length} error clusters`) : null}
+          {!isInitialEmpty && isEnabled('sensitive') ? renderSummaryChip('sensitive', `${insights.sensitiveFindings.length} sensitive hits`) : null}
+          {!isInitialEmpty && isEnabled('schema') ? renderSummaryChip('schema', `${insights.schemaDrifts.length} schema drifts`) : null}
         </div>
 
-        <div className="insight-feature-menu" ref={featureMenuRef}>
+        <div className="insight-toolbar-actions">
           <button
             type="button"
-            className="column-menu-button"
-            aria-label="Show or hide insight features"
-            aria-expanded={featureMenuOpen}
-            onClick={() => setFeatureMenuOpen((open) => !open)}
+            className="column-menu-button insight-collapse-button"
+            aria-label={collapsed ? 'Expand insight widgets' : 'Collapse insight widgets'}
+            aria-expanded={!isInitialEmpty && !collapsed}
+            aria-controls={isInitialEmpty ? undefined : 'insight-lists'}
+            onClick={() => {
+              if (!isInitialEmpty) {
+                setCollapsed((isCollapsed) => !isCollapsed);
+              }
+            }}
           >
-            <CogIcon />
+            <svg className="insight-collapse-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <rect className="insight-collapse-frame" x="4" y="5" width="16" height="14" rx="3" />
+              <path className="insight-collapse-lid" d="M7 9h10" />
+              <path className="insight-collapse-card insight-collapse-card-primary" d="M7 13h4" />
+              <path className="insight-collapse-card insight-collapse-card-secondary" d="M13 13h4" />
+              <path className="insight-collapse-arrow" d="M8 17h8m-3-3 3 3-3 3" />
+            </svg>
+            <span>Widgets</span>
           </button>
-          {featureMenuOpen ? (
-            <div className="column-menu-popover insight-feature-popover">
-              {INSIGHT_FEATURES.map((feature) => (
-                <label key={feature.id} className="column-menu-item">
-                  <input type="checkbox" checked={enabledFeatures.has(feature.id)} onChange={() => toggleFeature(feature.id)} />
-                  <span>{feature.label}</span>
-                </label>
-              ))}
-            </div>
-          ) : null}
+
+          <div className="insight-feature-menu" ref={featureMenuRef}>
+            <button
+              type="button"
+              className="column-menu-button"
+              aria-label="Show or hide insight features"
+              aria-expanded={featureMenuOpen}
+              onClick={() => setFeatureMenuOpen((open) => !open)}
+            >
+              <CogIcon />
+            </button>
+            {featureMenuOpen ? (
+              <div className="column-menu-popover insight-feature-popover">
+                {INSIGHT_FEATURES.map((feature) => (
+                  <label key={feature.id} className="column-menu-item">
+                    <input type="checkbox" checked={enabledFeatures.has(feature.id)} onChange={() => toggleFeature(feature.id)} />
+                    <span>{feature.label}</span>
+                  </label>
+                ))}
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
 
-      {hasVisibleInsights ? <div className="insight-lists">
-        {duplicateGroups.length ? (
-          <InsightCard title="Top Duplicates">
-            {duplicateGroups.map((group) => (
-              <div className="insight-row" key={group.key} title={`${group.method} ${group.domain}${group.path}`}>
-                <strong>{group.count}x</strong>
-                <span>{group.method}</span>
-                <span className="insight-path">{group.path}</span>
-                <em>{formatDuration(group.avgDurationMs)} avg</em>
-              </div>
-            ))}
-          </InsightCard>
-        ) : null}
+      {!isInitialEmpty ? <div id="insight-lists" className="insight-body" aria-hidden={collapsed}>
+        {hasVisibleInsights ? <div className="insight-lists">
+          {duplicateGroups.length ? (
+            <InsightCard title="Top Duplicates">
+              {duplicateGroups.map((group) => {
+                const duplicateLabel = group.graphqlOperationName ?? group.path;
+                const title = group.graphqlOperationName ? `${group.method} ${duplicateLabel} (${group.domain}${group.path})` : `${group.method} ${group.domain}${group.path}`;
 
-        {graphqlOperations.length ? (
-          <InsightCard title="GraphQL Operations">
-            {graphqlOperations.map((operation) => (
-              <div className="insight-row" key={operation.key} title={operation.operationName}>
-                <strong>{operation.count}x</strong>
-                <span className={`tag gql-${operation.operationType}`}>{operation.operationType}</span>
-                <span className="insight-path">{operation.operationName}</span>
-                {operation.errorCount ? <em className="danger-text">{operation.errorCount} errors</em> : <em>{formatDuration(operation.avgDurationMs)} avg</em>}
-              </div>
-            ))}
-          </InsightCard>
-        ) : null}
+                return (
+                  <button
+                    type="button"
+                    className={activeDuplicateFilters?.has(group.key) ? 'insight-row insight-filter-row active' : 'insight-row insight-filter-row'}
+                    key={group.key}
+                    role="checkbox"
+                    aria-checked={activeDuplicateFilters?.has(group.key) ?? false}
+                    title={`Filter by repeated request ${title}`}
+                    onClick={() => onToggleDuplicateFilter?.(group.key)}
+                  >
+                    <strong>{group.count}x</strong>
+                    <span>{group.method}</span>
+                    <span className="insight-path">{duplicateLabel}</span>
+                    <em>{formatDuration(group.avgDurationMs)} avg</em>
+                  </button>
+                );
+              })}
+            </InsightCard>
+          ) : null}
 
-        {errorClusters.length ? (
-          <InsightCard title="Error Clusters">
-            {errorClusters.map((cluster) => (
-              <div className="insight-row" key={cluster.key} title={`${cluster.method} ${cluster.domain}${cluster.path}`}>
-                <strong>{cluster.count}x</strong>
-                <span className="tag danger">{cluster.status}</span>
-                <span className="insight-path">{cluster.path}</span>
-                <em className="danger-text">{cluster.message}</em>
-              </div>
-            ))}
-          </InsightCard>
-        ) : null}
+          {graphqlOperations.length ? (
+            <InsightCard title="GraphQL Operations">
+              {graphqlOperations.map((operation) => (
+                <button
+                  type="button"
+                  className={activeOperationFilters?.has(operation.key) ? 'insight-row insight-filter-row active' : 'insight-row insight-filter-row'}
+                  key={operation.key}
+                  role="checkbox"
+                  aria-checked={activeOperationFilters?.has(operation.key) ?? false}
+                  title={`Filter by ${operation.operationName}`}
+                  onClick={() => onToggleOperationFilter?.(operation.key)}
+                >
+                  <strong>{operation.count}x</strong>
+                  <span className={`tag gql-${operation.operationType}`}>{operation.operationType}</span>
+                  <span className="insight-path">{operation.operationName}</span>
+                  {operation.errorCount ? <em className="danger-text">{operation.errorCount} errors</em> : <em>{formatDuration(operation.avgDurationMs)} avg</em>}
+                </button>
+              ))}
+            </InsightCard>
+          ) : null}
 
-        {slowEndpoints.length ? (
-          <InsightCard title="Slow Endpoints">
-            {slowEndpoints.map((endpoint) => (
-              <div className="insight-row" key={endpoint.key} title={`${endpoint.method} ${endpoint.domain}${endpoint.path}`}>
-                <strong>{formatDuration(endpoint.avgDurationMs)}</strong>
-                <span>{endpoint.method}</span>
-                <span className="insight-path">{endpoint.path}</span>
-                <em>{formatDuration(endpoint.maxDurationMs)} max</em>
-              </div>
-            ))}
-          </InsightCard>
-        ) : null}
+          {errorClusters.length ? (
+            <InsightCard title="Error Clusters">
+              {errorClusters.map((cluster) => (
+                <div className="insight-row" key={cluster.key} title={`${cluster.method} ${cluster.domain}${cluster.path}`}>
+                  <strong>{cluster.count}x</strong>
+                  <span className="tag danger">{cluster.status}</span>
+                  <span className="insight-path">{cluster.path}</span>
+                  <em className="danger-text">{cluster.message}</em>
+                </div>
+              ))}
+            </InsightCard>
+          ) : null}
 
-        {sensitiveFindings.length ? (
-          <InsightCard title="Sensitive Data">
-            {sensitiveFindings.map((finding) => (
-              <div className="insight-row" key={finding.key} title={finding.path}>
-                <strong>{finding.kind}</strong>
-                <span className="tag danger">privacy</span>
-                <span className="insight-path">{finding.path}</span>
-                <em>{finding.location}</em>
-              </div>
-            ))}
-          </InsightCard>
-        ) : null}
+          {slowEndpoints.length ? (
+            <InsightCard title="Slow Endpoints">
+              {slowEndpoints.map((endpoint) => (
+                <div className="insight-row" key={endpoint.key} title={`${endpoint.method} ${endpoint.domain}${endpoint.path}`}>
+                  <strong>{formatDuration(endpoint.avgDurationMs)}</strong>
+                  <span>{endpoint.method}</span>
+                  <span className="insight-path">{endpoint.path}</span>
+                  <em>{formatDuration(endpoint.maxDurationMs)} max</em>
+                </div>
+              ))}
+            </InsightCard>
+          ) : null}
 
-        {cacheInsights.length ? (
-          <InsightCard title="Cache Hints">
-            {cacheInsights.map((insight) => (
-              <div className="insight-row" key={insight.key} title={insight.path}>
-                <strong>GET</strong>
-                <span className="tag duplicate-tag">cache</span>
-                <span className="insight-path">{insight.path}</span>
-                <em>{insight.message}</em>
-              </div>
-            ))}
-          </InsightCard>
-        ) : null}
+          {sensitiveFindings.length ? (
+            <InsightCard title="Sensitive Data">
+              {sensitiveFindings.map((finding) => (
+                <div className="insight-row" key={finding.key} title={finding.path}>
+                  <strong>{finding.kind}</strong>
+                  <span className="tag danger">privacy</span>
+                  <span className="insight-path">{finding.path}</span>
+                  <em>{finding.location}</em>
+                </div>
+              ))}
+            </InsightCard>
+          ) : null}
 
-        {schemaDrifts.length ? (
-          <InsightCard title="Schema Drift">
-            {schemaDrifts.map((drift) => (
-              <div className="insight-row" key={drift.key} title={`${drift.method} ${drift.domain}${drift.path}`}>
-                <strong>{drift.variants} shapes</strong>
-                <span>{drift.method}</span>
-                <span className="insight-path">{drift.path}</span>
-                <em>{drift.requestIds.length} calls</em>
-              </div>
-            ))}
-          </InsightCard>
-        ) : null}
-      </div> : <div className="empty-state compact">All insight features are hidden.</div>}
+          {cacheInsights.length ? (
+            <InsightCard title="Cache Hints">
+              {cacheInsights.map((insight) => (
+                <div className="insight-row" key={insight.key} title={insight.path}>
+                  <strong>GET</strong>
+                  <span className="tag duplicate-tag">cache</span>
+                  <span className="insight-path">{insight.path}</span>
+                  <em>{insight.message}</em>
+                </div>
+              ))}
+            </InsightCard>
+          ) : null}
+
+          {schemaDrifts.length ? (
+            <InsightCard title="Schema Drift">
+              {schemaDrifts.map((drift) => (
+                <div className="insight-row" key={drift.key} title={`${drift.method} ${drift.domain}${drift.path}`}>
+                  <strong>{drift.variants} shapes</strong>
+                  <span>{drift.method}</span>
+                  <span className="insight-path">{drift.path}</span>
+                  <em>{drift.requestIds.length} calls</em>
+                </div>
+              ))}
+            </InsightCard>
+          ) : null}
+        </div> : <div className="empty-state compact">All insight features are hidden.</div>}
+      </div> : null}
     </section>
   );
-};
+});

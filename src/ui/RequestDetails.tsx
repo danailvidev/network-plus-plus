@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent } from 'react';
+import { memo, useEffect, useMemo, useRef, useState, type PointerEvent } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
 import { json } from '@codemirror/lang-json';
 import { foldAll, HighlightStyle, syntaxHighlighting, unfoldAll } from '@codemirror/language';
-import { highlightSelectionMatches, openSearchPanel, search, searchKeymap } from '@codemirror/search';
+import { highlightSelectionMatches, openSearchPanel, search, searchKeymap, SearchQuery, setSearchQuery } from '@codemirror/search';
 import { EditorSelection, Prec } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
 import { tags } from '@lezer/highlight';
@@ -35,6 +35,7 @@ type ParsedBody = {
 type BodyViewerProps = {
   value: string | undefined;
   mimeType?: string;
+  searchQuery?: string;
   showScrollOverview?: boolean;
   showJsonFoldingControls?: boolean;
 };
@@ -352,6 +353,16 @@ const parseBody = (value: string | undefined, mimeType: string | undefined): Par
   return { text: value, type: 'text', label: normalizedMime || 'Text' };
 };
 
+const findCaseInsensitiveMatch = (text: string, query: string): { from: number; to: number } | undefined => {
+  const normalizedQuery = query.trim();
+  if (!normalizedQuery) {
+    return undefined;
+  }
+
+  const from = text.toLowerCase().indexOf(normalizedQuery.toLowerCase());
+  return from === -1 ? undefined : { from, to: from + normalizedQuery.length };
+};
+
 const getResponseBody = (request: NetworkRequest): string | undefined =>
   request.responseBody ?? decodeHarText(request.rawHarEntry?.response.content?.text, request.rawHarEntry?.response.content?.encoding);
 
@@ -458,7 +469,7 @@ const formatRawResponse = (request: NetworkRequest): string => {
   return [statusLine, ...headers, '', body || 'No body captured.'].join('\n');
 };
 
-const BodyViewer = ({ value, mimeType, showScrollOverview = false, showJsonFoldingControls = false }: BodyViewerProps) => {
+const BodyViewer = ({ value, mimeType, searchQuery = '', showScrollOverview = false, showJsonFoldingControls = false }: BodyViewerProps) => {
   const parsedBody = parseBody(value, mimeType);
   const prefersDarkTheme = usePrefersDarkTheme();
   const editorViewRef = useBodyViewerFindShortcut();
@@ -477,6 +488,33 @@ const BodyViewer = ({ value, mimeType, showScrollOverview = false, showJsonFoldi
     setIsJsonCollapsed(false);
     setDidCopyJson(false);
   }, [parsedBody.text]);
+
+  useEffect(() => {
+    if (!editorView) {
+      return;
+    }
+
+    const normalizedQuery = searchQuery.trim();
+    const match = findCaseInsensitiveMatch(parsedBody.text, normalizedQuery);
+    const searchEffect = setSearchQuery.of(
+      new SearchQuery({
+        search: normalizedQuery,
+        caseSensitive: false,
+        regexp: false
+      })
+    );
+
+    if (!match) {
+      editorView.dispatch({ effects: searchEffect });
+      return;
+    }
+
+    const selection = EditorSelection.range(match.from, match.to);
+    editorView.dispatch({
+      effects: [searchEffect, EditorView.scrollIntoView(selection, { y: 'center' })],
+      selection
+    });
+  }, [editorView, parsedBody.text, searchQuery]);
 
   const toggleJsonFolding = () => {
     if (!editorView) {
@@ -568,10 +606,11 @@ const RawResponseViewer = ({ request }: { request: NetworkRequest }) => {
   );
 };
 
-export const RequestDetails = ({ request, searchQuery, insightCount, layout, onToggleLayout }: RequestDetailsProps) => {
+export const RequestDetails = memo(function RequestDetails({ request, searchQuery, insightCount, layout, onToggleLayout }: RequestDetailsProps) {
   const [activeTab, setActiveTab] = useState<DetailsTab>('response');
   const setActiveRequestId = useRequestsStore((state) => state.setActiveRequestId);
-  const settings = useSettingsStore();
+  const redactExportsByDefault = useSettingsStore((state) => state.redactExportsByDefault);
+  const sensitiveFieldNames = useSettingsStore((state) => state.sensitiveFieldNames);
 
   useEffect(() => {
     setActiveTab('response');
@@ -579,10 +618,10 @@ export const RequestDetails = ({ request, searchQuery, insightCount, layout, onT
 
   const redaction = useMemo(
     () => ({
-      enabled: settings.redactExportsByDefault,
-      sensitiveFieldNames: settings.sensitiveFieldNames
+      enabled: redactExportsByDefault,
+      sensitiveFieldNames
     }),
-    [settings.redactExportsByDefault, settings.sensitiveFieldNames]
+    [redactExportsByDefault, sensitiveFieldNames]
   );
 
   if (!request) {
@@ -714,7 +753,9 @@ export const RequestDetails = ({ request, searchQuery, insightCount, layout, onT
         ) : null}
 
         {activeTab === 'request' ? <BodyViewer value={request.requestBody} mimeType={request.rawHarEntry?.request.postData?.mimeType} /> : null}
-        {activeTab === 'response' ? <BodyViewer value={getResponseBody(request)} mimeType={request.mimeType} showJsonFoldingControls /> : null}
+        {activeTab === 'response' ? (
+          <BodyViewer value={getResponseBody(request)} mimeType={request.mimeType} searchQuery={searchQuery} showJsonFoldingControls />
+        ) : null}
         {activeTab === 'graphql' ? <GraphQLDetails graphql={request.graphql} /> : null}
 
         {activeTab === 'timing' ? (
@@ -747,4 +788,4 @@ export const RequestDetails = ({ request, searchQuery, insightCount, layout, onT
       </div>
     </aside>
   );
-};
+});
