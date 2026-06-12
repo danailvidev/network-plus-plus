@@ -93,7 +93,7 @@ export const InsightsPanel = ({ insights }: InsightsPanelProps) => {
               <span>{insights.duplicateRequestCount} repeated requests</span>
             </>
           ) : null}
-          {isEnabled('graphql') ? (
+          {isEnabled('graphql') && insights.graphqlOperations.length > 0 ? (
             <>
               <span>{insights.graphqlOperations.length} GraphQL operations</span>
               <span>{insights.graphqlErrorOperationCount} with errors</span>

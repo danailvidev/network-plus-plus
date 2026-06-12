@@ -6,8 +6,8 @@ Use this guide when refreshing the real product screenshots in `docs/assets/scre
 
 - `hero.png`: full DevTools window with the Network++ panel, populated request table, insights panel, and selected request details.
 - `filters.png`: filter bar with a structured query such as `status:>=400 method:POST`, active chips, saved filters, and recent searches.
-- `graphql.png`: GraphQL request details with operation name, operation type, variables, and at least one error or timing example.
-- `exports.png`: export menu showing JSON, CSV, HAR, Markdown, MSW, Playwright, Copy cURL, and the redaction state.
+- `details.png`: regular request details with headers, request body, response body, timing, and export tabs.
+- `exports.png`: right-click request context menu showing JSON, CSV, HAR, Markdown, MSW, Playwright, Copy cURL, and the redaction state.
 - Current screenshots are captured from the screenshot harness at `entrypoints/screenshot.html`, which renders the real app with safe synthetic request data from `src/ui/screenshot-fixtures.ts`.
 
 ## Sample Traffic
@@ -16,7 +16,7 @@ Use non-sensitive local or demo traffic. Good sources:
 
 - A local demo API.
 - A public test API with no credentials.
-- A small app fixture that triggers successful, failed, slow, cached, duplicate, and GraphQL-like requests.
+- A small app fixture that triggers successful, failed, slow, cached, and duplicate regular API requests.
 
 Avoid production domains, real tokens, real customer data, private URLs, cookies, email addresses, and internal service names.
 

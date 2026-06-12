@@ -31,8 +31,6 @@ Network++ captures requests from the inspected tab while DevTools is open, then 
 
 GraphQL traffic is detected and surfaced with operation details, operation type, variables, errors, and repeated operation insights so API debugging does not get buried inside generic POST requests.
 
-![GraphQL inspection screenshot](docs/assets/screenshots/graphql.png)
-
 ### Actionable Network Insights
 
 The insights panel highlights duplicate request groups, GraphQL operations, error clusters, slow endpoints, sensitive data hints, cache opportunities, and schema drift signals.
@@ -45,6 +43,7 @@ Export all requests, filtered requests, or a selected request into formats that 
 - MSW handlers for mocked API workflows.
 - Playwright route fixtures for end-to-end tests.
 - Copy-as-cURL for quick terminal reproduction.
+- Right-click any request to open the request context menu with the same export options.
 
 ![Export workflow screenshot](docs/assets/screenshots/exports.png)
 
@@ -60,7 +59,7 @@ The repository includes screenshots captured from the real Network++ panel runni
 | --- | --- |
 | Full panel | ![Network++ panel](docs/assets/screenshots/hero.png) |
 | Filters | ![Network++ filters](docs/assets/screenshots/filters.png) |
-| GraphQL | ![Network++ GraphQL details](docs/assets/screenshots/graphql.png) |
+| Request details | ![Network++ request details](docs/assets/screenshots/details.png) |
 | Exports | ![Network++ exports](docs/assets/screenshots/exports.png) |
 
 ## Install From Source

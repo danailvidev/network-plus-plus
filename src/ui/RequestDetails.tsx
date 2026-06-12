@@ -57,6 +57,9 @@ const TABS: Array<{ id: DetailsTab; label: string }> = [
   { id: 'export', label: 'Export' }
 ];
 
+const getVisibleTabs = (request: NetworkRequest): Array<{ id: DetailsTab; label: string }> =>
+  TABS.filter((tab) => tab.id !== 'graphql' || Boolean(request.graphql));
+
 const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const codeHighlightStyle = HighlightStyle.define([
@@ -594,6 +597,7 @@ export const RequestDetails = ({ request, searchQuery, insightCount, layout, onT
     await copyText(exportRequestAsCurl(request, redaction));
   };
   const nextLayoutLabel = layout === 'bottom' ? 'Move details to right side' : 'Move details to bottom';
+  const visibleTabs = getVisibleTabs(request);
 
   return (
     <aside className="details-panel">
@@ -626,7 +630,7 @@ export const RequestDetails = ({ request, searchQuery, insightCount, layout, onT
       </header>
 
       <nav className="details-tabs" aria-label="Request detail tabs">
-        {TABS.map((tab) => (
+        {visibleTabs.map((tab) => (
           <button type="button" key={tab.id} className={tab.id === activeTab ? 'active' : ''} onClick={() => setActiveTab(tab.id)}>
             {tab.label}
           </button>

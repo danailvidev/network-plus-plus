@@ -460,7 +460,7 @@ export const App = () => {
         <div className="capture-metrics" aria-label="Capture metrics">
           <span>{visibleRequests.length} / {fetchXhrRequests.length} Fetch/XHR</span>
           <span>{failedCount} errors</span>
-          <span>{graphqlCount} GraphQL</span>
+          {graphqlCount > 0 ? <span>{graphqlCount} GraphQL</span> : null}
           <label className="toggle compact-toggle" title="Capture response bodies for new requests">
             <input
               type="checkbox"

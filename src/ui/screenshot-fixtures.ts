@@ -4,13 +4,13 @@ const baseTime = Date.UTC(2026, 5, 12, 9, 30, 0);
 
 export const screenshotRequests: NetworkRequest[] = [
   {
-    id: 'demo-graphql-checkout-error',
-    url: 'https://demo.networkpp.dev/graphql',
+    id: 'demo-checkout-timeout',
+    url: 'https://demo.networkpp.dev/api/checkout',
     method: 'POST',
     status: 500,
     statusText: 'Internal Server Error',
     domain: 'demo.networkpp.dev',
-    path: '/graphql',
+    path: '/api/checkout',
     queryParams: {},
     requestHeaders: {
       'content-type': 'application/json',
@@ -21,17 +21,18 @@ export const screenshotRequests: NetworkRequest[] = [
     },
     requestBody: JSON.stringify(
       {
-        operationName: 'CheckoutSummary',
-        query: 'mutation CheckoutSummary($cartId: ID!) { checkout(cartId: $cartId) { total items { sku quantity } } }',
-        variables: { cartId: 'cart_demo_123' }
+        cartId: 'cart_demo_123',
+        paymentMethod: 'test_card',
+        shippingMethod: 'standard'
       },
       null,
       2
     ),
     responseBody: JSON.stringify(
       {
-        errors: [{ message: 'Checkout service timed out after 800ms', path: ['checkout'] }],
-        data: { checkout: null }
+        error: 'Checkout service timed out after 800ms',
+        code: 'CHECKOUT_TIMEOUT',
+        retryable: true
       },
       null,
       2
@@ -43,14 +44,7 @@ export const screenshotRequests: NetworkRequest[] = [
     sizeBytes: 14820,
     cached: false,
     failed: true,
-    tags: ['graphql', 'failed', 'server-error', 'slow'],
-    graphql: {
-      operationType: 'mutation',
-      operationName: 'CheckoutSummary',
-      query: 'mutation CheckoutSummary($cartId: ID!) { checkout(cartId: $cartId) { total items { sku quantity } } }',
-      variables: { cartId: 'cart_demo_123' },
-      errors: [{ message: 'Checkout service timed out after 800ms', path: ['checkout'] }]
-    },
+    tags: ['failed', 'server-error', 'slow'],
     timing: {
       blocked: 3,
       dns: 12,
@@ -85,25 +79,16 @@ export const screenshotRequests: NetworkRequest[] = [
   },
   {
     id: 'demo-recommendations',
-    url: 'https://demo.networkpp.dev/graphql',
-    method: 'POST',
+    url: 'https://demo.networkpp.dev/api/recommendations?sku=demo-sku',
+    method: 'GET',
     status: 200,
     statusText: 'OK',
     domain: 'demo.networkpp.dev',
-    path: '/graphql',
-    queryParams: {},
-    requestHeaders: { 'content-type': 'application/json' },
+    path: '/api/recommendations',
+    queryParams: { sku: ['demo-sku'] },
+    requestHeaders: { accept: 'application/json' },
     responseHeaders: { 'content-type': 'application/json' },
-    requestBody: JSON.stringify(
-      {
-        operationName: 'ProductRecommendations',
-        query: 'query ProductRecommendations($sku: ID!) { recommendations(sku: $sku) { sku name } }',
-        variables: { sku: 'demo-sku' }
-      },
-      null,
-      2
-    ),
-    responseBody: JSON.stringify({ data: { recommendations: [{ sku: 'demo-related', name: 'Related demo item' }] } }, null, 2),
+    responseBody: JSON.stringify({ recommendations: [{ sku: 'demo-related', name: 'Related demo item' }] }, null, 2),
     mimeType: 'application/json',
     resourceType: 'fetch',
     startTime: baseTime + 240,
@@ -111,14 +96,7 @@ export const screenshotRequests: NetworkRequest[] = [
     sizeBytes: 6240,
     cached: false,
     failed: false,
-    tags: ['graphql', 'success'],
-    graphql: {
-      operationType: 'query',
-      operationName: 'ProductRecommendations',
-      query: 'query ProductRecommendations($sku: ID!) { recommendations(sku: $sku) { sku name } }',
-      variables: { sku: 'demo-sku' },
-      data: { recommendations: [{ sku: 'demo-related', name: 'Related demo item' }] }
-    },
+    tags: ['success'],
     timing: { blocked: 1, dns: 4, connect: 7, ssl: 6, send: 2, wait: 66, receive: 10 }
   },
   {

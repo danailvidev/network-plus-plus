@@ -24,10 +24,10 @@ const mockChromeApis = () => {
     sensitiveFieldNames: ['authorization', 'cookie', 'set-cookie', 'token', 'password', 'email'],
     savedFilters: [
       { id: 'errors-only', name: 'Errors only', query: 'status:>=400' },
-      { id: 'graphql-traffic', name: 'GraphQL traffic', query: 'graphql:true' },
-      { id: 'slow-api-calls', name: 'Slow API calls', query: 'status:>=400 method:POST' }
+      { id: 'slow-posts', name: 'Slow POSTs', query: 'status:>=400 method:POST' },
+      { id: 'cart-requests', name: 'Cart requests', query: 'path:/api/cart' }
     ],
-    recentSearches: ['status:>=400 method:POST graphql:true', 'domain:demo.networkpp.dev']
+    recentSearches: ['status:>=400 method:POST', 'domain:demo.networkpp.dev']
   };
 
   const chromeHost = globalThis as unknown as { chrome?: ScreenshotChromeApi };
@@ -67,19 +67,35 @@ const setTopFilter = (value: string) => {
   input.dispatchEvent(new Event('input', { bubbles: true }));
 };
 
+const openRequestContextMenu = () => {
+  const row = document.querySelector<HTMLElement>('.request-row.active') ?? document.querySelector<HTMLElement>('.request-row');
+  if (!row) return;
+
+  row.dispatchEvent(
+    new MouseEvent('contextmenu', {
+      bubbles: true,
+      cancelable: true,
+      clientX: 520,
+      clientY: 352,
+      button: 2
+    })
+  );
+};
+
 const prepareView = () => {
   if (screenshotView === 'filters') {
     setTopFilter('status:>=400 method:POST');
     return;
   }
 
-  if (screenshotView === 'graphql') {
-    clickButtonByText('GraphQL');
+  if (screenshotView === 'details') {
+    clickButtonByText('Headers');
     return;
   }
 
   if (screenshotView === 'exports') {
     clickButtonByText('Export');
+    window.setTimeout(openRequestContextMenu, 100);
   }
 };
 
@@ -88,8 +104,8 @@ document.documentElement.dataset.screenshotView = screenshotView;
 
 useRequestsStore.setState({
   requests: screenshotRequests,
-  activeRequestId: 'demo-graphql-checkout-error',
-  selectedIds: new Set(['demo-graphql-checkout-error']),
+  activeRequestId: 'demo-checkout-timeout',
+  selectedIds: new Set(['demo-checkout-timeout']),
   paused: false
 });
 
