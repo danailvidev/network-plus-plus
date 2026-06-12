@@ -21,8 +21,7 @@
         <p class="eyebrow">Launch assets</p>
         <h1>Screenshot Capture Guide</h1>
         <p>
-          Replace the designed preview images in <code>docs/assets/screenshots/</code> with real product screenshots before
-          public release.
+          Refresh the real product screenshots in <code>docs/assets/screenshots/</code> when the UI changes.
         </p>
       </div>
 
@@ -33,7 +32,7 @@
         </article>
         <article class="card">
           <h3>filters.png</h3>
-          <p>Filter bar with a query like <code>status:&gt;=400 method:POST graphql:true</code>, active chips, and saved filters.</p>
+          <p>Filter bar with a query like <code>status:&gt;=400 method:POST</code>, active chips, and saved filters.</p>
         </article>
         <article class="card">
           <h3>graphql.png</h3>
@@ -60,13 +59,14 @@
         </div>
         <div class="install-grid">
           <div class="terminal">
-            <pre><code>npm run dev</code></pre>
+            <pre><code>npm run build
+google-chrome --headless=new --screenshot=docs/assets/screenshots/hero.png \
+  http://127.0.0.1:4173/screenshot.html?view=hero</code></pre>
           </div>
           <ol>
-            <li>Load <code>.output/chrome-mv3</code> from <code>chrome://extensions</code>.</li>
-            <li>Open a page that generates safe sample traffic.</li>
-            <li>Open DevTools and select <code>Network++</code>.</li>
-            <li>Capture the views listed above.</li>
+            <li>Serve <code>.output/chrome-mv3</code> locally or load the extension manually.</li>
+            <li>Use the screenshot harness for synthetic captures, or open a page that generates safe sample traffic.</li>
+            <li>Capture the views listed above from the real Network++ UI.</li>
             <li>Save the files in <code>docs/assets/screenshots/</code>.</li>
             <li>Update <code>README.md</code> and <code>docs/index.html</code> if filenames change.</li>
           </ol>

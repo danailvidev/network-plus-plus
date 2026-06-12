@@ -8,7 +8,7 @@
 
 Network++ adds a dedicated DevTools panel that keeps the familiar network-debugging workflow, then layers on power tools for modern web apps: structured filtering, request coloring, GraphQL operation insight, local exports, and privacy-conscious defaults.
 
-![Network++ hero preview](docs/assets/screenshots/hero.svg)
+![Network++ hero screenshot](docs/assets/screenshots/hero.png)
 
 ## Why Network++
 
@@ -16,7 +16,7 @@ Chrome's built-in Network tab is excellent for low-level inspection, but it can 
 
 - Find the failing, slow, duplicated, or GraphQL requests quickly.
 - Inspect headers, query params, request bodies, response bodies, timing, raw HAR data, and generated exports in one place.
-- Save and reuse filters like `status:>=400 method:POST graphql:true`.
+- Save and reuse filters like `status:>=400 method:POST`.
 - Export useful debugging artifacts without leaking sensitive fields by default.
 
 ## Features
@@ -25,13 +25,13 @@ Chrome's built-in Network tab is excellent for low-level inspection, but it can 
 
 Network++ captures requests from the inspected tab while DevTools is open, then presents them in a purpose-built table with searchable metadata, filter chips, pause/resume capture, preserve-log behavior, and clear visual status cues.
 
-![Request filtering preview](docs/assets/screenshots/filters.svg)
+![Request filtering screenshot](docs/assets/screenshots/filters.png)
 
 ### GraphQL-Aware Inspection
 
 GraphQL traffic is detected and surfaced with operation details, operation type, variables, errors, and repeated operation insights so API debugging does not get buried inside generic POST requests.
 
-![GraphQL inspection preview](docs/assets/screenshots/graphql.svg)
+![GraphQL inspection screenshot](docs/assets/screenshots/graphql.png)
 
 ### Actionable Network Insights
 
@@ -46,7 +46,7 @@ Export all requests, filtered requests, or a selected request into formats that 
 - Playwright route fixtures for end-to-end tests.
 - Copy-as-cURL for quick terminal reproduction.
 
-![Export workflow preview](docs/assets/screenshots/exports.svg)
+![Export workflow screenshot](docs/assets/screenshots/exports.png)
 
 ### Local-First Privacy
 
@@ -54,14 +54,14 @@ Captured data stays local to the browser. Response body capture is opt-in, setti
 
 ## Screenshots
 
-The repository currently includes designed preview images for the public launch. Replace them with real captured screenshots before release if you want the page to show the extension exactly as it appears in Chrome.
+The repository includes screenshots captured from the real Network++ panel running with safe synthetic demo traffic.
 
 | View | Preview |
 | --- | --- |
-| Full panel | ![Network++ panel](docs/assets/screenshots/hero.svg) |
-| Filters | ![Network++ filters](docs/assets/screenshots/filters.svg) |
-| GraphQL | ![Network++ GraphQL details](docs/assets/screenshots/graphql.svg) |
-| Exports | ![Network++ exports](docs/assets/screenshots/exports.svg) |
+| Full panel | ![Network++ panel](docs/assets/screenshots/hero.png) |
+| Filters | ![Network++ filters](docs/assets/screenshots/filters.png) |
+| GraphQL | ![Network++ GraphQL details](docs/assets/screenshots/graphql.png) |
+| Exports | ![Network++ exports](docs/assets/screenshots/exports.png) |
 
 ## Install From Source
 

@@ -1,13 +1,14 @@
 # Screenshot Capture Guide
 
-Use this guide when replacing the designed preview images in `docs/assets/screenshots/` with real product screenshots.
+Use this guide when refreshing the real product screenshots in `docs/assets/screenshots/`.
 
 ## Files To Capture
 
 - `hero.png`: full DevTools window with the Network++ panel, populated request table, insights panel, and selected request details.
-- `filters.png`: filter bar with a structured query such as `status:>=400 method:POST graphql:true`, active chips, saved filters, and recent searches.
+- `filters.png`: filter bar with a structured query such as `status:>=400 method:POST`, active chips, saved filters, and recent searches.
 - `graphql.png`: GraphQL request details with operation name, operation type, variables, and at least one error or timing example.
 - `exports.png`: export menu showing JSON, CSV, HAR, Markdown, MSW, Playwright, Copy cURL, and the redaction state.
+- Current screenshots are captured from the screenshot harness at `entrypoints/screenshot.html`, which renders the real app with safe synthetic request data from `src/ui/screenshot-fixtures.ts`.
 
 ## Sample Traffic
 
@@ -40,4 +41,4 @@ Recommended screenshot settings:
 6. Save the files in `docs/assets/screenshots/`.
 7. Update `README.md` and `docs/index.html` if the filenames change.
 
-The existing `.svg` files are launch previews. Keep them until real screenshots are ready, or use them as fallbacks for the GitHub Pages site.
+If you replace the current synthetic captures with manual Chrome screenshots, keep the filenames stable so `README.md` and `docs/index.html` do not need link changes.
