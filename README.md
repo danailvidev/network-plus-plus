@@ -6,6 +6,8 @@
 [![Built with WXT](https://img.shields.io/badge/Built%20with-WXT-5b8cff.svg)](https://wxt.dev)
 [![Chrome DevTools](https://img.shields.io/badge/Chrome-DevTools%20Extension-34a853.svg)](https://developer.chrome.com/docs/extensions)
 
+## [Install Network++ from the Chrome Web Store](https://chromewebstore.google.com/detail/network++/jgoikneccfgcemiakipicalefmnpoljb?authuser=0&hl=en)
+
 Network++ adds a dedicated DevTools panel that keeps the familiar network-debugging workflow, then layers on power tools for modern web apps: structured filtering, request coloring, GraphQL operation insight, local exports, and privacy-conscious defaults.
 
 ![Network++ hero screenshot](docs/assets/screenshots/hero.png)
@@ -62,9 +64,11 @@ The repository includes screenshots captured from the real Network++ panel runni
 | Request details | ![Network++ request details](docs/assets/screenshots/details.png) |
 | Exports | ![Network++ exports](docs/assets/screenshots/exports.png) |
 
-## Install From Source
+## Install
 
-Network++ is not yet published to the Chrome Web Store. To run it locally:
+Install the published extension from the [Chrome Web Store](https://chromewebstore.google.com/detail/network++/jgoikneccfgcemiakipicalefmnpoljb?authuser=0&hl=en).
+
+To build and run it locally from source:
 
 ```bash
 npm install
