@@ -1192,6 +1192,21 @@ button.insight-row.active {
   stroke-width: 2.4;
 }
 
+.rest-method {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.rest-method-name {
+  overflow: hidden;
+  color: var(--text);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .graphql-method {
   display: flex;
   align-items: center;

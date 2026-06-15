@@ -95,6 +95,28 @@ const getGraphQLOperationLabel = (request: NetworkRequest) => {
   };
 };
 
+const getTrailingPathLabel = (request: NetworkRequest) => {
+  const pathname = (() => {
+    try {
+      return new URL(request.url).pathname;
+    } catch {
+      return request.path;
+    }
+  })();
+  const segments = pathname
+    .split('/')
+    .map((segment) => {
+      try {
+        return decodeURIComponent(segment);
+      } catch {
+        return segment;
+      }
+    })
+    .filter(Boolean);
+
+  return segments.slice(-2).join('/') || '/';
+};
+
 const MethodIcon = ({ request }: { request: NetworkRequest }) => {
   if (request.graphql) {
     const operation = getGraphQLOperationLabel(request);
@@ -111,6 +133,8 @@ const MethodIcon = ({ request }: { request: NetworkRequest }) => {
 
   const method = request.method;
   const normalizedMethod = method.toUpperCase();
+  const pathLabel = getTrailingPathLabel(request);
+  const title = `${normalizedMethod} ${request.path}`;
   const path =
     normalizedMethod === 'POST'
       ? 'M12 5v14M5 12h14'
@@ -121,10 +145,13 @@ const MethodIcon = ({ request }: { request: NetworkRequest }) => {
           : 'M7 12h10M13 8l4 4-4 4';
 
   return (
-    <span className={`method-icon method-${normalizedMethod.toLowerCase()}`} title={normalizedMethod} aria-label={normalizedMethod}>
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d={path} />
-      </svg>
+    <span className="rest-method" title={title} aria-label={title}>
+      <span className={`method-icon method-${normalizedMethod.toLowerCase()}`} aria-hidden="true">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d={path} />
+        </svg>
+      </span>
+      <span className="rest-method-name">{pathLabel}</span>
     </span>
   );
 };
@@ -196,7 +223,7 @@ export const NetworkTable = memo(function NetworkTable({ requests, colorEnabled,
         size: 560,
         cell: ({ row }) => (
           <div className="url-cell" title={row.original.url}>
-            <strong>{row.original.path}</strong>
+            <strong>{row.original.url}</strong>
           </div>
         )
       },
