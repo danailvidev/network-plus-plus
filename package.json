@@ -1,6 +1,6 @@
 {
   "name": "network-plus-plus",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "Enhanced Chrome DevTools network panel extension.",
@@ -8,6 +8,7 @@
     "dev": "wxt",
     "build": "wxt build",
     "zip": "wxt zip",
+    "release:patch": "npm version patch --no-git-tag-version && npm run build && npm run zip",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

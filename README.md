@@ -98,6 +98,7 @@ npm run dev       # Start WXT development mode
 npm run typecheck # Validate TypeScript
 npm run build     # Build the production extension
 npm run zip       # Package the extension as a zip
+npm run release:patch # Bump the extension patch version, build, and zip
 ```
 
 ## GitHub Pages
