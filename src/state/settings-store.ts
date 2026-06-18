@@ -10,7 +10,6 @@ const savedFilterSchema = z.object({
 });
 
 const settingsSchema = z.object({
-  bodyCaptureEnabled: z.boolean().default(true),
   preserveLogOnReload: z.boolean().default(false),
   redactExportsByDefault: z.boolean().default(true),
   sensitiveFieldNames: z.array(z.string()).default(DEFAULT_SENSITIVE_FIELD_NAMES),

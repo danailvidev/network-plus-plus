@@ -24,6 +24,7 @@ export const buildRequestSearchText = (request: NetworkRequest): string =>
     request.method,
     request.status,
     request.statusText,
+    request.state,
     request.mimeType,
     request.resourceType,
     request.requestBody,

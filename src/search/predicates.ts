@@ -15,6 +15,7 @@ export type FilterChipId =
   | '3xx'
   | '4xx'
   | '5xx'
+  | 'pending'
   | 'failed'
   | 'slow'
   | 'large'
@@ -39,6 +40,7 @@ export const FILTER_CHIPS: FilterChip[] = [
   { id: '3xx', label: '3xx' },
   { id: '4xx', label: '4xx' },
   { id: '5xx', label: '5xx' },
+  { id: 'pending', label: 'Pending' },
   { id: 'failed', label: 'Failed' },
   { id: 'slow', label: 'Slow' },
   { id: 'large', label: 'Large' },
@@ -107,6 +109,7 @@ const matchesFieldToken = (request: NetworkRequest, token: SearchToken): boolean
 
   switch (token.field) {
     case 'status':
+      if (value.toLowerCase() === 'pending') return request.state === 'pending';
       return compareNumber(request.status, token.operator, Number.parseInt(value, 10));
     case 'method':
       return request.method.toLowerCase() === value.toLowerCase();
@@ -194,6 +197,8 @@ export const matchesFilterChip = (request: NetworkRequest, chip: FilterChipId): 
       return request.status !== null && request.status >= 400 && request.status < 500;
     case '5xx':
       return request.status !== null && request.status >= 500;
+    case 'pending':
+      return request.state === 'pending';
     case 'failed':
       return request.failed;
     case 'slow':

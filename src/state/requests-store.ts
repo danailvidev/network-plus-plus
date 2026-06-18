@@ -10,6 +10,7 @@ type RequestsStore = {
   addRequest: (request: NetworkRequest) => void;
   addRequests: (requests: NetworkRequest[]) => void;
   upsertRequest: (request: NetworkRequest) => void;
+  upsertRequests: (requests: NetworkRequest[]) => void;
   clearRequests: () => void;
   setActiveRequestId: (id: string | undefined) => void;
 };
@@ -27,20 +28,32 @@ export const useRequestsStore = create<RequestsStore>((set, get) => ({
       return { requests, activeRequestId };
     });
   },
-  upsertRequest: (request) => {
+  upsertRequest: (request) => get().upsertRequests([request]),
+  upsertRequests: (newRequests) => {
+    if (newRequests.length === 0) return;
     set((state) => {
-      const index = state.requests.findIndex((item) => item.id === request.id);
-      if (index === -1) {
-        const requests = [...state.requests, request].slice(-MAX_CAPTURED_REQUESTS);
-        const requestIds = new Set(requests.map((item) => item.id));
-        const activeRequestId = state.activeRequestId && requestIds.has(state.activeRequestId) ? state.activeRequestId : undefined;
+      const next = [...state.requests];
+      const indexesById = new Map(next.map((item, index) => [item.id, index]));
 
-        return { requests, activeRequestId };
+      for (const request of newRequests) {
+        const index = indexesById.get(request.id);
+        if (index === undefined) {
+          indexesById.set(request.id, next.length);
+          next.push(request);
+        } else {
+          const currentRequest = next[index]!;
+          next[index] = {
+            ...request,
+            responseBody: request.responseBody ?? currentRequest.responseBody
+          };
+        }
       }
 
-      const next = [...state.requests];
-      next[index] = request;
-      return { requests: next };
+      const requests = next.slice(-MAX_CAPTURED_REQUESTS);
+      const requestIds = new Set(requests.map((item) => item.id));
+      const activeRequestId = state.activeRequestId && requestIds.has(state.activeRequestId) ? state.activeRequestId : undefined;
+
+      return { requests, activeRequestId };
     });
   },
   clearRequests: () => set({ requests: [], activeRequestId: undefined }),

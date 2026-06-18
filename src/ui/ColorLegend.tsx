@@ -12,12 +12,14 @@ export const COLOR_TONES = [
   ['graphql-error', 'GraphQL errors'],
   ['slow', 'Slow'],
   ['cached', 'Cached'],
+  ['pending', 'Pending'],
   ['failed', 'Failed']
 ] as const;
 
 export type ColorTone = (typeof COLOR_TONES)[number][0];
 
 export const getRequestColorTone = (request: NetworkRequest): ColorTone | undefined => {
+  if (request.state === 'pending') return 'pending';
   if (request.failed) return 'failed';
   if (request.graphql?.errors?.length) return 'graphql-error';
   if (request.graphql?.operationType === 'mutation') return 'graphql-mutation';

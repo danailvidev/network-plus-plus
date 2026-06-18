@@ -122,12 +122,16 @@ const normalizeStatusToken = (operator: ComparisonOperator | undefined, value: s
 const matchesStatusToken = (request: NetworkRequest, token: SearchToken): boolean => {
   const normalizedValue = token.value.trim().toLowerCase();
 
+  if (normalizedValue === 'pending') {
+    return request.state === 'pending';
+  }
+
   if (/^[1-5]xx$/.test(normalizedValue)) {
     return request.status !== null && Math.floor(request.status / 100) === Number.parseInt(normalizedValue[0] ?? '', 10);
   }
 
   if (normalizedValue === 'err' || normalizedValue === 'error' || normalizedValue === 'failed') {
-    return request.status === null || request.failed;
+    return request.state === 'failed' || request.failed;
   }
 
   const { operator, value } = normalizeStatusToken(token.operator, token.value);
@@ -152,10 +156,12 @@ const matchesFilterToken = (request: NetworkRequest, token: SearchToken): boolea
         request.method,
         request.status,
         request.statusText,
+        request.state,
         request.graphql?.operationName,
         request.graphql?.operationType,
+        request.state === 'pending' ? 'pending' : undefined,
         request.graphql ? 'graphql gql' : undefined,
-        request.status === null || request.failed ? 'failed error err' : undefined
+        request.state === 'failed' || request.failed ? 'failed error err' : undefined
       ].some((source) => includesValue(source, normalizedValue));
       break;
     case 'url':
@@ -245,7 +251,6 @@ export const App = () => {
   const clearRequests = useRequestsStore((state) => state.clearRequests);
   const settingsHydrated = useSettingsStore((state) => state.hydrated);
   const hydrateSettings = useSettingsStore((state) => state.hydrate);
-  const bodyCaptureEnabled = useSettingsStore((state) => state.bodyCaptureEnabled);
   const preserveLogOnReload = useSettingsStore((state) => state.preserveLogOnReload);
   const updateSettings = useSettingsStore((state) => state.updateSettings);
 
@@ -273,28 +278,28 @@ export const App = () => {
     }
 
     const capture = new DevtoolsNetworkCapture();
-    const pendingRequests: NetworkRequest[] = [];
+    const queuedRequests: NetworkRequest[] = [];
     let flushFrameId: number | undefined;
-    const flushPendingRequests = () => {
+    const flushQueuedRequests = () => {
       flushFrameId = undefined;
-      const nextRequests = pendingRequests.splice(0);
-      useRequestsStore.getState().addRequests(nextRequests);
+      const nextRequests = queuedRequests.splice(0);
+      useRequestsStore.getState().upsertRequests(nextRequests);
     };
     const enqueueRequest = (request: NetworkRequest) => {
-      pendingRequests.push(request);
-      flushFrameId ??= window.requestAnimationFrame(flushPendingRequests);
+      queuedRequests.push(request);
+      flushFrameId ??= window.requestAnimationFrame(flushQueuedRequests);
     };
 
     capture.start({
       onRequest: enqueueRequest,
       onNavigation: () => {
-        pendingRequests.length = 0;
+        queuedRequests.length = 0;
         if (!useSettingsStore.getState().preserveLogOnReload) {
           useRequestsStore.getState().clearRequests();
         }
       },
       onError: (error) => setCaptureError(error.message),
-      shouldCaptureResponseBodies: () => useSettingsStore.getState().bodyCaptureEnabled
+      shouldCaptureResponseBodies: () => true
     });
 
     return () => {
@@ -369,6 +374,7 @@ export const App = () => {
     () => visibleRequests.filter((request) => request.failed || (request.status !== null && request.status >= 400)).length,
     [visibleRequests]
   );
+  const pendingCount = useMemo(() => visibleRequests.filter((request) => request.state === 'pending').length, [visibleRequests]);
   const graphqlCount = useMemo(() => visibleRequests.filter((request) => request.graphql).length, [visibleRequests]);
   const hasDetailsPanel = activeRequest !== undefined;
   const isBottomDetailsLayout = detailsLayout === 'bottom';
@@ -381,7 +387,7 @@ export const App = () => {
 
       return isBottomDetailsLayout
         ? {
-            gridTemplateColumns: '1fr',
+            gridTemplateColumns: 'minmax(0, 1fr)',
             gridTemplateRows: `minmax(220px, 1fr) 12px minmax(220px, ${detailsSizePercent}%)`,
             gridTemplateAreas: '"table" "resizer" "details"'
           }
@@ -589,16 +595,9 @@ export const App = () => {
         </div>
         <div className="capture-metrics" aria-label="Capture metrics">
           <span>{visibleRequests.length} / {fetchXhrRequests.length} Fetch/XHR</span>
+          {pendingCount > 0 ? <span>{pendingCount} pending</span> : null}
           <span>{failedCount} errors</span>
           {graphqlCount > 0 ? <span>{graphqlCount} GraphQL</span> : null}
-          <label className="toggle compact-toggle" title="Capture response bodies for new requests">
-            <input
-              type="checkbox"
-              checked={bodyCaptureEnabled}
-              onChange={(event) => void updateSettings({ bodyCaptureEnabled: event.target.checked })}
-            />
-            Capture bodies
-          </label>
           <label className="toggle compact-toggle" title="Keep captured requests when the inspected page reloads">
             <input
               type="checkbox"

@@ -198,9 +198,9 @@ const createBodyViewerTheme = (prefersDarkTheme: boolean) => [
       },
       '.cm-search input': {
         height: '28px',
-        border: '1px solid rgba(122, 162, 255, 0.42)',
+        border: '1px solid var(--accent-border)',
         borderRadius: '7px',
-        backgroundColor: 'rgba(12, 15, 21, 0.96)',
+        backgroundColor: 'var(--field-bg)',
         color: 'var(--code-text)',
         padding: '4px 8px'
       },
@@ -215,7 +215,7 @@ const createBodyViewerTheme = (prefersDarkTheme: boolean) => [
       },
       '.cm-search input:focus-visible': {
         borderColor: 'var(--accent)',
-        outline: '2px solid rgba(122, 162, 255, 0.24)',
+        outline: '2px solid var(--accent-bg-strong)',
         outlineOffset: '1px'
       },
       '.cm-search button, .cm-search label': {
@@ -225,14 +225,14 @@ const createBodyViewerTheme = (prefersDarkTheme: boolean) => [
       },
       '.cm-search button': {
         cursor: 'pointer',
-        border: '1px solid rgba(122, 162, 255, 0.36)',
+        border: '1px solid var(--accent-border)',
         borderRadius: '7px',
-        backgroundColor: 'rgba(32, 39, 56, 0.96)',
+        backgroundColor: 'var(--panel-soft)',
         padding: '4px 9px'
       },
       '.cm-search button:hover, .cm-search button:focus-visible': {
         borderColor: 'var(--accent)',
-        backgroundColor: 'rgba(122, 162, 255, 0.18)'
+        backgroundColor: 'var(--accent-bg-strong)'
       },
       '.cm-panel.cm-search button[name="close"]': {
         position: 'static',
@@ -461,8 +461,13 @@ const BodyScrollOverview = ({ text, editorView }: { text: string; editorView: Ed
   );
 };
 
+const getStatusLabel = (request: NetworkRequest): string => {
+  if (request.state === 'pending') return 'Pending';
+  return String(request.status ?? 'Failed');
+};
+
 const formatRawResponse = (request: NetworkRequest): string => {
-  const statusLine = `HTTP ${request.status ?? 'ERR'}${request.statusText ? ` ${request.statusText}` : ''}`;
+  const statusLine = request.state === 'pending' ? 'HTTP Pending' : `HTTP ${request.status ?? 'ERR'}${request.statusText ? ` ${request.statusText}` : ''}`;
   const headers = Object.entries(request.responseHeaders).map(([name, value]) => `${name}: ${value}`);
   const body = getResponseBody(request) ?? '';
 
@@ -690,7 +695,7 @@ export const RequestDetails = memo(function RequestDetails({ request, searchQuer
                   <tr>
                     <th>Status</th>
                     <td>
-                      {request.status ?? 'Failed'} {request.statusText}
+                      {getStatusLabel(request)} {request.statusText}
                     </td>
                   </tr>
                   <tr>

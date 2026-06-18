@@ -41,6 +41,7 @@ const deriveStatusTags = (status: number | null): NetworkTag[] => {
 const deriveTags = (request: Omit<NetworkRequest, 'tags'>): NetworkTag[] => {
   const tags = new Set<NetworkTag>(deriveStatusTags(request.status));
 
+  if (request.state === 'pending') tags.add('pending');
   if (request.durationMs !== undefined && request.durationMs > SLOW_REQUEST_MS) tags.add('slow');
   if (request.sizeBytes !== undefined && request.sizeBytes > LARGE_RESPONSE_BYTES) tags.add('large');
   if (request.graphql) tags.add('graphql');
@@ -67,7 +68,9 @@ export const normalizeHarEntry = (entry: HarEntry, options: NormalizeOptions = {
   const durationMs = getDurationMs(entry);
   const sizeBytes = getSizeBytes(entry);
   const status = Number.isFinite(entry.response.status) && entry.response.status > 0 ? entry.response.status : null;
-  const failed = status === null || Boolean(entry.response._error);
+  const pending = status === null && !entry.response._error;
+  const failed = !pending && (status === null || Boolean(entry.response._error));
+  const state = pending ? 'pending' : failed ? 'failed' : 'complete';
   const graphql = parseGraphQLInfo({
     url: entry.request.url,
     requestHeaders,
@@ -81,6 +84,7 @@ export const normalizeHarEntry = (entry: HarEntry, options: NormalizeOptions = {
     method: entry.request.method.toUpperCase(),
     status,
     statusText: entry.response.statusText,
+    state,
     domain: parsedUrl.hostname,
     path: `${parsedUrl.pathname}${parsedUrl.search}`,
     queryParams: queryStringToRecord(entry.request.queryString, parsedUrl.href),

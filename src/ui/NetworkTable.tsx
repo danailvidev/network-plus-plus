@@ -72,6 +72,10 @@ type ScrollbarDragState = {
 };
 
 const StatusBadge = ({ request }: { request: NetworkRequest }) => {
+  if (request.state === 'pending') {
+    return <span className="status-badge status-pending">Pending</span>;
+  }
+
   const status = request.status ?? 'ERR';
   return <span className={`status-badge status-${request.status ? Math.floor(request.status / 100) : 'err'}`}>{status}</span>;
 };
@@ -160,14 +164,13 @@ const DuplicateBadge = ({ count }: { count: number | undefined }) => (count && c
 
 const InsightBadge = ({ count }: { count: number | undefined }) => (count ? <span className="tag insight-tag">{count} insight{count === 1 ? '' : 's'}</span> : '-');
 
-const TagList = ({ request, duplicateCount, insightCount }: { request: NetworkRequest; duplicateCount: number | undefined; insightCount: number | undefined }) => (
+const TagList = ({ request, duplicateCount }: { request: NetworkRequest; duplicateCount: number | undefined }) => (
   <div className="tag-list">
     {request.graphql ? <span className="tag graphql-tag">GraphQL</span> : null}
     {request.graphql?.operationType ? <span className={`tag gql-${request.graphql.operationType}`}>{request.graphql.operationType}</span> : null}
     {request.graphql?.batched ? <span className="tag">Batched</span> : null}
     {request.graphql?.errors?.length ? <span className="tag danger">GraphQL Errors</span> : null}
     {duplicateCount && duplicateCount > 1 ? <span className="tag duplicate-tag">{duplicateCount}x repeat</span> : null}
-    {insightCount ? <span className="tag insight-tag">{insightCount} insights</span> : null}
     {request.tags.filter((tag) => tag !== 'graphql').map((tag) => (
       <span className="tag" key={tag}>
         {tag}
@@ -294,7 +297,6 @@ export const NetworkTable = memo(function NetworkTable({ requests, colorEnabled,
           <TagList
             request={row.original}
             duplicateCount={duplicateRequestCounts.get(row.original.id)}
-            insightCount={requestInsightCounts.get(row.original.id)}
           />
         )
       }
@@ -600,82 +602,84 @@ export const NetworkTable = memo(function NetworkTable({ requests, colorEnabled,
           </div>
         ) : null}
       </div>
-      <div className="table-header" style={{ minWidth: totalWidth }}>
-        {table.getHeaderGroups().map((headerGroup) => (
-          <div className="table-row header-row" key={headerGroup.id}>
-            {headerGroup.headers.map((header) => (
-              <div
-                key={header.id}
-                className={`table-cell header-cell ${header.column.id === dragOverColumnId ? 'drag-over' : ''} ${
-                  header.column.id === draggedColumnId ? 'is-dragging' : ''
-                }`}
-                style={{ width: header.getSize() }}
-                data-column-id={header.column.id}
-                onDragOver={(event) => handleColumnDragOver(event, header.column.id)}
-                onDrop={(event) => handleColumnDrop(event, header.column.id)}
-              >
-                <button
-                  type="button"
-                  className="header-sort-button"
-                  draggable
-                  aria-label={`Sort and move ${COLUMN_LABELS[header.column.id] ?? header.column.id} column`}
-                  onClick={header.column.getToggleSortingHandler()}
-                  onDragStart={(event) => startColumnDrag(event, header.column.id)}
-                  onDragEnd={endColumnDrag}
-                >
-                  {flexRender(header.column.columnDef.header, header.getContext())}
-                  <span className="sort-indicator">
-                    {header.column.getIsSorted() === 'asc' ? '▲' : header.column.getIsSorted() === 'desc' ? '▼' : ''}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  className={`column-resizer ${header.column.getIsResizing() ? 'is-resizing' : ''}`}
-                  aria-label={`Resize ${header.column.id} column. Double-click to fit content.`}
-                  onMouseDown={header.getResizeHandler()}
-                  onTouchStart={header.getResizeHandler()}
-                  onDoubleClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    compactColumnToContent(header.column.id);
-                  }}
-                />
-              </div>
-            ))}
-          </div>
-        ))}
-      </div>
-
-      <div className={`table-body ${hasVerticalOverflow ? 'is-vertically-scrollable' : ''}`} ref={parentRef} onScroll={updateBodyScrollMetrics}>
-        {rows.length === 0 ? (
-          <div className="empty-state">No requests match the current filters.</div>
-        ) : (
-          <div className="virtual-spacer" style={{ height: rowVirtualizer.getTotalSize(), minWidth: totalWidth }}>
-            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-              const row = rows[virtualRow.index];
-              if (!row) return null;
-              const request = row.original;
-              const rowTone = getRequestColorTone(request);
-              const toneClass = colorEnabled && rowTone && selectedColorTones.has(rowTone) ? `tone-${rowTone}` : '';
-
-              return (
+      <div className="table-horizontal-scroll">
+        <div className="table-header" style={{ minWidth: totalWidth }}>
+          {table.getHeaderGroups().map((headerGroup) => (
+            <div className="table-row header-row" key={headerGroup.id}>
+              {headerGroup.headers.map((header) => (
                 <div
-                  key={row.id}
-                  className={`table-row request-row ${toneClass} ${request.id === activeRequestId ? 'active' : ''}`}
-                  style={{ transform: `translateY(${virtualRow.start}px)`, minWidth: totalWidth }}
-                  onClick={() => setActiveRequestId(request.id)}
-                  onContextMenu={(event) => openRequestContextMenu(event, request)}
+                  key={header.id}
+                  className={`table-cell header-cell ${header.column.id === dragOverColumnId ? 'drag-over' : ''} ${
+                    header.column.id === draggedColumnId ? 'is-dragging' : ''
+                  }`}
+                  style={{ width: header.getSize() }}
+                  data-column-id={header.column.id}
+                  onDragOver={(event) => handleColumnDragOver(event, header.column.id)}
+                  onDrop={(event) => handleColumnDrop(event, header.column.id)}
                 >
-                  {row.getVisibleCells().map((cell) => (
-                    <div className="table-cell" key={cell.id} style={{ width: cell.column.getSize() }} data-column-id={cell.column.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </div>
-                  ))}
+                  <button
+                    type="button"
+                    className="header-sort-button"
+                    draggable
+                    aria-label={`Sort and move ${COLUMN_LABELS[header.column.id] ?? header.column.id} column`}
+                    onClick={header.column.getToggleSortingHandler()}
+                    onDragStart={(event) => startColumnDrag(event, header.column.id)}
+                    onDragEnd={endColumnDrag}
+                  >
+                    {flexRender(header.column.columnDef.header, header.getContext())}
+                    <span className="sort-indicator">
+                      {header.column.getIsSorted() === 'asc' ? '▲' : header.column.getIsSorted() === 'desc' ? '▼' : ''}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`column-resizer ${header.column.getIsResizing() ? 'is-resizing' : ''}`}
+                    aria-label={`Resize ${header.column.id} column. Double-click to fit content.`}
+                    onMouseDown={header.getResizeHandler()}
+                    onTouchStart={header.getResizeHandler()}
+                    onDoubleClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      compactColumnToContent(header.column.id);
+                    }}
+                  />
                 </div>
-              );
-            })}
-          </div>
-        )}
+              ))}
+            </div>
+          ))}
+        </div>
+
+        <div className={`table-body ${hasVerticalOverflow ? 'is-vertically-scrollable' : ''}`} ref={parentRef} onScroll={updateBodyScrollMetrics} style={{ minWidth: totalWidth }}>
+          {rows.length === 0 ? (
+            <div className="empty-state">No requests match the current filters.</div>
+          ) : (
+            <div className="virtual-spacer" style={{ height: rowVirtualizer.getTotalSize() }}>
+              {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                const row = rows[virtualRow.index];
+                if (!row) return null;
+                const request = row.original;
+                const rowTone = getRequestColorTone(request);
+                const toneClass = colorEnabled && rowTone && selectedColorTones.has(rowTone) ? `tone-${rowTone}` : '';
+
+                return (
+                  <div
+                    key={row.id}
+                    className={`table-row request-row ${toneClass} ${request.id === activeRequestId ? 'active' : ''}`}
+                    style={{ transform: `translateY(${virtualRow.start}px)` }}
+                    onClick={() => setActiveRequestId(request.id)}
+                    onContextMenu={(event) => openRequestContextMenu(event, request)}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <div className="table-cell" key={cell.id} style={{ width: cell.column.getSize() }} data-column-id={cell.column.id}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
       <div
         className={`table-vertical-scrollbar ${hasVerticalOverflow ? 'is-scrollable' : ''}`}

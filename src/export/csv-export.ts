@@ -3,6 +3,7 @@ import { redactRequests, type RedactionOptions } from '../privacy/redact';
 
 const COLUMNS = [
   'method',
+  'state',
   'status',
   'url',
   'domain',
@@ -23,6 +24,7 @@ const escapeCsvValue = (value: unknown): string => {
 
 const requestToRow = (request: NetworkRequest): unknown[] => [
   request.method,
+  request.state,
   request.status,
   request.url,
   request.domain,

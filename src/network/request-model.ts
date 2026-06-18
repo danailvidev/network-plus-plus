@@ -6,6 +6,7 @@ export type HeaderRecord = Record<string, string>;
 export type QueryParamsRecord = Record<string, string[]>;
 
 export type NetworkTag =
+  | 'pending'
   | 'slow'
   | 'large'
   | 'graphql'
@@ -16,6 +17,8 @@ export type NetworkTag =
   | 'client-error'
   | 'server-error'
   | 'success';
+
+export type NetworkRequestState = 'pending' | 'complete' | 'failed';
 
 export type RequestTiming = {
   blocked?: number;
@@ -33,6 +36,7 @@ export type NetworkRequest = {
   method: string;
   status: number | null;
   statusText?: string;
+  state: NetworkRequestState;
   domain: string;
   path: string;
   queryParams: QueryParamsRecord;

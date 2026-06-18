@@ -18,7 +18,6 @@ type ScreenshotChromeApi = {
 
 const mockChromeApis = () => {
   const settings = {
-    bodyCaptureEnabled: true,
     preserveLogOnReload: true,
     redactExportsByDefault: true,
     sensitiveFieldNames: ['authorization', 'cookie', 'set-cookie', 'token', 'password', 'email'],

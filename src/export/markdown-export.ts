@@ -2,10 +2,11 @@ import type { NetworkRequest } from '../network/request-model';
 import { redactRequests, type RedactionOptions } from '../privacy/redact';
 
 const formatRequest = (request: NetworkRequest): string => {
+  const statusLabel = request.state === 'pending' ? 'pending' : (request.status ?? 'n/a');
   const lines = [
     `### ${request.method} ${request.url}`,
     '',
-    `- Status: ${request.status ?? 'n/a'} ${request.statusText ?? ''}`.trim(),
+    `- Status: ${statusLabel} ${request.statusText ?? ''}`.trim(),
     `- Type: ${request.resourceType ?? request.mimeType ?? 'unknown'}`,
     `- Duration: ${request.durationMs?.toFixed(0) ?? 'n/a'} ms`,
     `- Size: ${request.sizeBytes ?? 'n/a'} bytes`,
