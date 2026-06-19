@@ -17,6 +17,7 @@ const HAR_POLL_INTERVAL_MS = 750;
 export class DevtoolsNetworkCapture {
   private requestCounter = 0;
   private knownRequestIds = new Map<string, string>();
+  private completedHarEntryKeys = new Set<string>();
   private listener?: (request: DevtoolsRequest) => void;
   private navigationListener?: (url: string) => void;
   private harPollIntervalId?: number;
@@ -92,7 +93,16 @@ export class DevtoolsNetworkCapture {
     try {
       const har = await new Promise<HarArchive['log']>((resolve) => chrome.devtools.network.getHAR((log) => resolve(log as HarArchive['log'])));
       for (const entry of har.entries ?? []) {
+        const key = this.harEntryKey(entry);
+        if (this.completedHarEntryKeys.has(key)) {
+          continue;
+        }
+
         const normalized = normalizeHarEntry(entry, { id: this.idForEntry(entry), includeResponseBody: options.shouldCaptureResponseBodies?.() ?? false });
+        if (normalized.state !== 'pending') {
+          this.completedHarEntryKeys.add(key);
+        }
+
         if (isFetchXhrRequest(normalized)) {
           options.onRequest(normalized);
         }
