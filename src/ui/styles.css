@@ -1659,11 +1659,18 @@ button.insight-row.active {
 }
 
 .body-viewer {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
   max-width: 100%;
+  min-height: 0;
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 10px;
+}
+
+.details-content > .body-viewer {
+  height: 100%;
 }
 
 .body-viewer-toolbar {
@@ -1729,6 +1736,8 @@ button.insight-row.active {
 
 .body-viewer-editor {
   position: relative;
+  display: flex;
+  flex: 1 1 auto;
   max-width: 100%;
   min-width: 0;
   min-height: 0;
@@ -1831,6 +1840,18 @@ button.insight-row.active {
   background: var(--code-bg);
   color: var(--code-text);
   font-size: 12px;
+}
+
+.body-viewer > .cm-theme,
+.body-viewer-editor > .cm-theme {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.body-viewer .cm-editor {
+  height: 100%;
 }
 
 .cm-scroller {
