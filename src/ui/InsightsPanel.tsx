@@ -10,6 +10,8 @@ type InsightsPanelProps = {
   requestCount: number;
   activeSummaryFilters?: ReadonlySet<InsightSummaryFilterId>;
   onToggleSummaryFilter?: (filterId: InsightSummaryFilterId) => void;
+  collapsed: boolean;
+  onCollapsedChange: (collapsed: boolean) => void;
   activeOperationFilters?: ReadonlySet<string>;
   onToggleOperationFilter?: (operationKey: string) => void;
   activeDuplicateFilters?: ReadonlySet<string>;
@@ -48,13 +50,14 @@ export const InsightsPanel = memo(function InsightsPanel({
   requestCount,
   activeSummaryFilters,
   onToggleSummaryFilter,
+  collapsed,
+  onCollapsedChange,
   activeOperationFilters,
   onToggleOperationFilter,
   activeDuplicateFilters,
   onToggleDuplicateFilter
 }: InsightsPanelProps) {
   const featureMenuRef = useRef<HTMLDivElement>(null);
-  const [collapsed, setCollapsed] = useState(false);
   const [featureMenuOpen, setFeatureMenuOpen] = useState(false);
   const [enabledFeatures, setEnabledFeatures] = useState<ReadonlySet<InsightFeatureId>>(() => new Set(INSIGHT_FEATURES.map((feature) => feature.id)));
   const isEnabled = (feature: InsightFeatureId): boolean => enabledFeatures.has(feature);
@@ -146,7 +149,7 @@ export const InsightsPanel = memo(function InsightsPanel({
             aria-controls={isInitialEmpty ? undefined : 'insight-lists'}
             onClick={() => {
               if (!isInitialEmpty) {
-                setCollapsed((isCollapsed) => !isCollapsed);
+                onCollapsedChange(!collapsed);
               }
             }}
           >

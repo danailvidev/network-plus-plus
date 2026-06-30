@@ -252,6 +252,7 @@ export const App = () => {
   const settingsHydrated = useSettingsStore((state) => state.hydrated);
   const hydrateSettings = useSettingsStore((state) => state.hydrate);
   const preserveLogOnReload = useSettingsStore((state) => state.preserveLogOnReload);
+  const insightWidgetsCollapsed = useSettingsStore((state) => state.insightWidgetsCollapsed);
   const updateSettings = useSettingsStore((state) => state.updateSettings);
 
   useEffect(() => {
@@ -371,11 +372,16 @@ export const App = () => {
   const activeRequest = useMemo(() => fetchXhrRequests.find((request) => request.id === activeRequestId), [activeRequestId, fetchXhrRequests]);
 
   const failedCount = useMemo(
-    () => visibleRequests.filter((request) => request.failed || (request.status !== null && request.status >= 400)).length,
-    [visibleRequests]
+    () =>
+      baseVisibleRequests.filter(
+        (request) => request.failed || (request.status !== null && request.status >= 400) || request.graphql?.errors?.length
+      ).length,
+    [baseVisibleRequests]
   );
   const pendingCount = useMemo(() => visibleRequests.filter((request) => request.state === 'pending').length, [visibleRequests]);
-  const graphqlCount = useMemo(() => visibleRequests.filter((request) => request.graphql).length, [visibleRequests]);
+  const graphqlCount = useMemo(() => baseVisibleRequests.filter((request) => request.graphql).length, [baseVisibleRequests]);
+  const isErrorsFilterActive = activeInsightFilters.has('error-clusters');
+  const isGraphQLFilterActive = activeInsightFilters.has('graphql');
   const hasDetailsPanel = activeRequest !== undefined;
   const isBottomDetailsLayout = detailsLayout === 'bottom';
   const activeFilterMode = FILTER_MODE_OPTIONS.find((option) => option.id === filterMode) ?? FILTER_MODE_OPTIONS[0]!;
@@ -596,8 +602,24 @@ export const App = () => {
         <div className="capture-metrics" aria-label="Capture metrics">
           <span>{visibleRequests.length} / {fetchXhrRequests.length} Fetch/XHR</span>
           {pendingCount > 0 ? <span>{pendingCount} pending</span> : null}
-          <span>{failedCount} errors</span>
-          {graphqlCount > 0 ? <span>{graphqlCount} GraphQL</span> : null}
+          <button
+            type="button"
+            className={`metric-filter-button ${isErrorsFilterActive ? 'active' : ''}`}
+            aria-pressed={isErrorsFilterActive}
+            onClick={() => toggleInsightFilter('error-clusters')}
+          >
+            {failedCount} errors
+          </button>
+          {graphqlCount > 0 || isGraphQLFilterActive ? (
+            <button
+              type="button"
+              className={`metric-filter-button ${isGraphQLFilterActive ? 'active' : ''}`}
+              aria-pressed={isGraphQLFilterActive}
+              onClick={() => toggleInsightFilter('graphql')}
+            >
+              {graphqlCount} GraphQL
+            </button>
+          ) : null}
           <label className="toggle compact-toggle" title="Keep captured requests when the inspected page reloads">
             <input
               type="checkbox"
@@ -654,6 +676,8 @@ export const App = () => {
             requestCount={visibleRequests.length}
             activeSummaryFilters={activeInsightFilters}
             onToggleSummaryFilter={toggleInsightFilter}
+            collapsed={insightWidgetsCollapsed}
+            onCollapsedChange={(collapsed) => void updateSettings({ insightWidgetsCollapsed: collapsed })}
             activeOperationFilters={activeOperationFilters}
             onToggleOperationFilter={toggleOperationFilter}
             activeDuplicateFilters={activeDuplicateFilters}

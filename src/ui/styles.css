@@ -374,6 +374,7 @@ button {
 }
 
 .capture-metrics span,
+.metric-filter-button,
 .redaction-pill,
 .chip,
 .saved-filter,
@@ -385,6 +386,18 @@ button {
   color: var(--muted);
   padding: 4px 9px;
   font-size: 12px;
+}
+
+.metric-filter-button {
+  cursor: pointer;
+}
+
+.metric-filter-button:hover,
+.metric-filter-button:focus-visible,
+.metric-filter-button.active {
+  border-color: var(--accent-border-strong);
+  background: var(--accent-bg-strong);
+  color: var(--accent-text-strong);
 }
 
 .notice {

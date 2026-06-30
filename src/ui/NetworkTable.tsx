@@ -118,7 +118,13 @@ const getTrailingPathLabel = (request: NetworkRequest) => {
     })
     .filter(Boolean);
 
-  return segments.slice(-2).join('/') || '/';
+  const pathLabel = segments.slice(-2).join('/') || '/';
+
+  if (pathLabel !== '/' && pathLabel.length === 1 && request.domain) {
+    return `${request.domain}/${pathLabel}`;
+  }
+
+  return pathLabel;
 };
 
 const MethodIcon = ({ request }: { request: NetworkRequest }) => {
@@ -538,7 +544,7 @@ export const NetworkTable = memo(function NetworkTable({ requests, colorEnabled,
   };
 
   useLayoutEffect(() => {
-    if (!latestRequestId || rows.length === 0) {
+    if (activeRequestId || !latestRequestId || rows.length === 0) {
       return undefined;
     }
 
@@ -559,7 +565,7 @@ export const NetworkTable = memo(function NetworkTable({ requests, colorEnabled,
     });
 
     return () => window.cancelAnimationFrame(frameId);
-  }, [latestRequestId, rowVirtualizer, rows, updateBodyScrollMetrics]);
+  }, [activeRequestId, latestRequestId, rowVirtualizer, rows, updateBodyScrollMetrics]);
 
   useLayoutEffect(() => {
     updateBodyScrollMetrics();
