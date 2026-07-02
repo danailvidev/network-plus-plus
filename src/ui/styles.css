@@ -229,6 +229,7 @@ button {
   flex-direction: column;
   gap: 8px;
   height: 100%;
+  min-width: 0;
   padding: 10px;
 }
 
@@ -621,22 +622,39 @@ button:disabled {
 .table-region {
   display: grid;
   grid-area: table;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-areas:
+    "insights"
+    "table";
+  grid-template-rows: auto minmax(0, 1fr);
   height: 100%;
 }
 
-.table-actions {
-  justify-content: space-between;
-  gap: 10px;
-  border-bottom: 1px solid var(--border);
-  padding: 8px 10px;
+.table-region.has-color-legend {
+  grid-template-areas:
+    "insights"
+    "legend"
+    "table";
+  grid-template-rows: auto auto minmax(0, 1fr);
 }
 
-.table-action-controls {
+.table-legend-row {
+  grid-area: legend;
+  min-width: 0;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+  padding: 5px 10px;
+}
+
+.table-panel-controls {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  z-index: 4;
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
 }
 
@@ -650,7 +668,14 @@ button:disabled {
 }
 
 .export-menu {
+  position: relative;
+  flex: 0 0 auto;
   color: var(--muted);
+}
+
+.export-menu-popover {
+  z-index: 8;
+  min-width: 180px;
 }
 
 .request-context-menu {
@@ -694,6 +719,7 @@ button:disabled {
 }
 
 .insights-panel {
+  grid-area: insights;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   gap: 8px;
@@ -991,6 +1017,7 @@ button.insight-row.active {
 
 .network-table {
   position: relative;
+  grid-area: table;
   display: grid;
   grid-template-rows: minmax(0, 1fr);
   min-width: 0;
@@ -1157,10 +1184,8 @@ button.insight-row.active {
 }
 
 .table-column-menu {
-  position: absolute;
-  top: 4px;
-  right: 6px;
-  z-index: 4;
+  position: relative;
+  flex: 0 0 auto;
 }
 
 .column-menu-button {
@@ -1835,7 +1860,7 @@ button.insight-row.active {
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  height: min(70vh, 640px);
+  height: 100%;
   overflow: hidden;
   background: var(--code-bg);
   color: var(--code-text);
@@ -1846,8 +1871,10 @@ button.insight-row.active {
 .body-viewer-editor > .cm-theme {
   display: flex;
   flex: 1 1 auto;
+  width: 100%;
   min-width: 0;
   min-height: 0;
+  height: 100%;
 }
 
 .body-viewer .cm-editor {
@@ -1857,6 +1884,16 @@ button.insight-row.active {
 .cm-scroller {
   min-width: 0;
   overflow: auto;
+  scrollbar-gutter: stable both-edges;
+}
+
+.body-viewer .cm-content {
+  min-width: 100%;
+  padding-right: 12px;
+}
+
+.body-viewer .cm-lineWrapping .cm-line {
+  overflow-wrap: anywhere;
 }
 
 .cm-gutters {

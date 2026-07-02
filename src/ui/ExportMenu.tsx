@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useRef, useState } from 'react';
 
 import { exportRequestsAsCsv } from '../export/csv-export';
 import { exportRequestAsCurl } from '../export/curl-export';
@@ -10,6 +10,8 @@ import { exportRequestsAsPlaywrightRoutes } from '../export/playwright-export';
 import type { NetworkRequest } from '../network/request-model';
 import { useSettingsStore, type Settings } from '../state/settings-store';
 import { copyText, downloadTextFile } from '../utils/download';
+import { DownloadIcon } from './icons';
+import { useCloseMenuOnOutsideClick } from './useCloseMenuOnOutsideClick';
 
 type ExportMenuProps = {
   allRequests: NetworkRequest[];
@@ -69,6 +71,8 @@ const getMimeType = (format: ExportFormat) =>
         : 'text/typescript';
 
 export const ExportMenu = memo(function ExportMenu({ allRequests, filteredRequests, activeRequest }: ExportMenuProps) {
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const redactExportsByDefault = useSettingsStore((state) => state.redactExportsByDefault);
   const sensitiveFieldNames = useSettingsStore((state) => state.sensitiveFieldNames);
   const redaction = useMemo(
@@ -76,41 +80,60 @@ export const ExportMenu = memo(function ExportMenu({ allRequests, filteredReques
     [redactExportsByDefault, sensitiveFieldNames]
   );
 
+  useCloseMenuOnOutsideClick(exportMenuRef, exportMenuOpen, () => setExportMenuOpen(false));
+
   const download = (scope: ExportScope, format: ExportFormat) => {
     const requests = getRequestsForScope(scope, allRequests, filteredRequests);
     downloadTextFile(filename(scope, format), getExportContent(requests, redaction, format), getMimeType(format));
+    setExportMenuOpen(false);
   };
 
   const copyActiveCurl = async () => {
     if (!activeRequest) return;
     await copyText(exportRequestAsCurl(activeRequest, redaction));
+    setExportMenuOpen(false);
   };
 
   return (
-    <div className="export-menu">
-      <span>Export</span>
-      <button type="button" className="secondary-button" onClick={() => download('filtered', 'json')} disabled={filteredRequests.length === 0}>
-        Filtered JSON
+    <div className="export-menu" ref={exportMenuRef}>
+      <button
+        type="button"
+        className="column-menu-button"
+        aria-label="Export requests"
+        aria-expanded={exportMenuOpen}
+        onClick={() => setExportMenuOpen((open) => !open)}
+      >
+        <DownloadIcon />
       </button>
-      <button type="button" className="secondary-button" onClick={() => download('filtered', 'csv')} disabled={filteredRequests.length === 0}>
-        CSV
-      </button>
-      <button type="button" className="secondary-button" onClick={() => download('filtered', 'har')} disabled={filteredRequests.length === 0}>
-        HAR
-      </button>
-      <button type="button" className="secondary-button" onClick={() => download('all', 'md')} disabled={allRequests.length === 0}>
-        Markdown
-      </button>
-      <button type="button" className="secondary-button" onClick={() => download('filtered', 'msw.ts')} disabled={filteredRequests.length === 0}>
-        MSW
-      </button>
-      <button type="button" className="secondary-button" onClick={() => download('filtered', 'playwright.ts')} disabled={filteredRequests.length === 0}>
-        Playwright
-      </button>
-      <button type="button" className="secondary-button" onClick={() => void copyActiveCurl()} disabled={!activeRequest}>
-        Copy cURL
-      </button>
-      {redactExportsByDefault ? <span className="redaction-pill">Redacted</span> : <span className="redaction-pill raw">Raw</span>}
+      {exportMenuOpen ? (
+        <div className="column-menu-popover export-menu-popover" role="menu" aria-label="Export requests">
+          <div className="request-context-menu-header">
+            <span>Export</span>
+            {redactExportsByDefault ? <span className="redaction-pill">Redacted</span> : <span className="redaction-pill raw">Raw</span>}
+          </div>
+          <button type="button" className="request-context-menu-item" onClick={() => download('filtered', 'json')} disabled={filteredRequests.length === 0}>
+            Filtered JSON
+          </button>
+          <button type="button" className="request-context-menu-item" onClick={() => download('filtered', 'csv')} disabled={filteredRequests.length === 0}>
+            CSV
+          </button>
+          <button type="button" className="request-context-menu-item" onClick={() => download('filtered', 'har')} disabled={filteredRequests.length === 0}>
+            HAR
+          </button>
+          <button type="button" className="request-context-menu-item" onClick={() => download('all', 'md')} disabled={allRequests.length === 0}>
+            Markdown
+          </button>
+          <button type="button" className="request-context-menu-item" onClick={() => download('filtered', 'msw.ts')} disabled={filteredRequests.length === 0}>
+            MSW
+          </button>
+          <button type="button" className="request-context-menu-item" onClick={() => download('filtered', 'playwright.ts')} disabled={filteredRequests.length === 0}>
+            Playwright
+          </button>
+          <button type="button" className="request-context-menu-item" onClick={() => void copyActiveCurl()} disabled={!activeRequest}>
+            Copy cURL
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 });

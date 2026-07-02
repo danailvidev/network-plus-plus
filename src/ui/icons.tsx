@@ -23,6 +23,24 @@ export const CopyIcon = ({ className }: IconProps) => (
   </svg>
 );
 
+export const DownloadIcon = ({ className }: IconProps) => (
+  <svg className={className} viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2">
+    <path d="M12 3v12" />
+    <path d="m7 10 5 5 5-5" />
+    <path d="M5 21h14" />
+  </svg>
+);
+
+export const PaletteIcon = ({ className }: IconProps) => (
+  <svg className={className} viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2">
+    <path d="M12 3a9 9 0 0 0 0 18h1.4a1.8 1.8 0 0 0 1.25-3.1 1.8 1.8 0 0 1 1.25-3.1H17a4 4 0 0 0 4-4c0-4.3-4-7.8-9-7.8Z" />
+    <circle cx="7.5" cy="10" r="1" />
+    <circle cx="10.5" cy="7.5" r="1" />
+    <circle cx="14.5" cy="7.5" r="1" />
+    <circle cx="16.5" cy="11" r="1" />
+  </svg>
+);
+
 export const PanelBottomIcon = ({ className }: IconProps) => (
   <svg className={className} viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2">
     <rect x="4" y="5" width="16" height="14" rx="2" />

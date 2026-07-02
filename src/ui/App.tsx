@@ -6,9 +6,9 @@ import { isFetchXhrRequest, type NetworkRequest } from '../network/request-model
 import { parseSearchQuery, type ComparisonOperator, type SearchToken } from '../search/parser';
 import { useRequestsStore } from '../state/requests-store';
 import { useSettingsStore } from '../state/settings-store';
-import { COLOR_TONES, ColorLegend, getRequestColorTone, type ColorTone } from './ColorLegend';
+import { COLOR_TONES, ColorLegend, getRequestColorFilterTones, type ColorTone } from './ColorLegend';
 import { ExportMenu } from './ExportMenu';
-import { CogIcon } from './icons';
+import { PaletteIcon } from './icons';
 import { InsightsPanel, type InsightSummaryFilterId } from './InsightsPanel';
 import { NetworkTable } from './NetworkTable';
 import { RequestDetails } from './RequestDetails';
@@ -345,8 +345,8 @@ export const App = () => {
     }
 
     return textFilteredRequests.filter((request) => {
-      const tone = getRequestColorTone(request);
-      return tone !== undefined && selectedColorTones.has(tone);
+      const tones = getRequestColorFilterTones(request);
+      return tones.length > 0 && tones.every((tone) => selectedColorTones.has(tone));
     });
   }, [coloringEnabled, selectedColorTones, textFilteredRequests]);
   const insights = useMemo(() => buildNetworkInsights(baseVisibleRequests), [baseVisibleRequests]);
@@ -641,36 +641,7 @@ export const App = () => {
         ref={workspaceRef}
         style={workspaceStyle}
       >
-        <div className="table-region">
-          <div className="table-actions">
-            <ExportMenu allRequests={fetchXhrRequests} filteredRequests={visibleRequests} activeRequest={activeRequest} />
-            <div className="table-action-controls">
-              {coloringEnabled ? <ColorLegend selectedTones={selectedColorTones} onToggleTone={toggleColorTone} /> : null}
-              <div className="coloring-menu" ref={coloringMenuRef}>
-                <button
-                  type="button"
-                  className="column-menu-button"
-                  aria-label="Coloring options"
-                  aria-expanded={coloringMenuOpen}
-                  onClick={() => setColoringMenuOpen((open) => !open)}
-                >
-                  <CogIcon />
-                </button>
-                {coloringMenuOpen ? (
-                  <div className="column-menu-popover coloring-menu-popover">
-                    <label className="column-menu-item">
-                      <input
-                        type="checkbox"
-                        checked={coloringEnabled}
-                        onChange={(event) => setColoringEnabled(event.target.checked)}
-                      />
-                      <span>Enable coloring</span>
-                    </label>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          </div>
+        <div className={`table-region ${coloringEnabled ? 'has-color-legend' : ''}`}>
           <InsightsPanel
             insights={insights}
             requestCount={visibleRequests.length}
@@ -683,12 +654,45 @@ export const App = () => {
             activeDuplicateFilters={activeDuplicateFilters}
             onToggleDuplicateFilter={toggleDuplicateFilter}
           />
+          {coloringEnabled ? (
+            <div className="table-legend-row">
+              <ColorLegend selectedTones={selectedColorTones} onToggleTone={toggleColorTone} />
+            </div>
+          ) : null}
           <NetworkTable
             requests={visibleRequests}
             colorEnabled={coloringEnabled}
             selectedColorTones={selectedColorTones}
             duplicateRequestCounts={insights.duplicateRequestCounts}
             requestInsightCounts={insights.requestInsightCounts}
+            headerControls={
+              <>
+                <ExportMenu allRequests={fetchXhrRequests} filteredRequests={visibleRequests} activeRequest={activeRequest} />
+                <div className="coloring-menu" ref={coloringMenuRef}>
+                  <button
+                    type="button"
+                    className="column-menu-button"
+                    aria-label="Coloring options"
+                    aria-expanded={coloringMenuOpen}
+                    onClick={() => setColoringMenuOpen((open) => !open)}
+                  >
+                  <PaletteIcon />
+                  </button>
+                  {coloringMenuOpen ? (
+                    <div className="column-menu-popover coloring-menu-popover">
+                      <label className="column-menu-item">
+                        <input
+                          type="checkbox"
+                          checked={coloringEnabled}
+                          onChange={(event) => setColoringEnabled(event.target.checked)}
+                        />
+                        <span>Enable coloring</span>
+                      </label>
+                    </div>
+                  ) : null}
+                </div>
+              </>
+            }
           />
         </div>
 

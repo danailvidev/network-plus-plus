@@ -1,4 +1,16 @@
-import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type MouseEvent, type PointerEvent } from 'react';
+import {
+  memo,
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type DragEvent,
+  type MouseEvent,
+  type PointerEvent,
+  type ReactNode
+} from 'react';
 import {
   flexRender,
   getCoreRowModel,
@@ -25,6 +37,7 @@ type NetworkTableProps = {
   selectedColorTones: ReadonlySet<ColorTone>;
   duplicateRequestCounts: ReadonlyMap<string, number>;
   requestInsightCounts: ReadonlyMap<string, number>;
+  headerControls?: ReactNode;
 };
 
 const INITIAL_COLUMN_ORDER = ['method', 'status', 'size', 'duration', 'url', 'domain', 'resourceType', 'started', 'cached', 'graphql', 'duplicates', 'insights', 'tags'];
@@ -185,7 +198,14 @@ const TagList = ({ request, duplicateCount }: { request: NetworkRequest; duplica
   </div>
 );
 
-export const NetworkTable = memo(function NetworkTable({ requests, colorEnabled, selectedColorTones, duplicateRequestCounts, requestInsightCounts }: NetworkTableProps) {
+export const NetworkTable = memo(function NetworkTable({
+  requests,
+  colorEnabled,
+  selectedColorTones,
+  duplicateRequestCounts,
+  requestInsightCounts,
+  headerControls
+}: NetworkTableProps) {
   const tableRef = useRef<HTMLDivElement>(null);
   const parentRef = useRef<HTMLDivElement>(null);
   const verticalScrollbarRef = useRef<HTMLDivElement>(null);
@@ -587,26 +607,29 @@ export const NetworkTable = memo(function NetworkTable({ requests, colorEnabled,
 
   return (
     <div className={`network-table ${colorEnabled ? 'coloring-enabled' : ''}`} ref={tableRef}>
-      <div className="table-column-menu" ref={columnMenuRef}>
-        <button
-          type="button"
-          className="column-menu-button"
-          aria-label="Show or hide columns"
-          aria-expanded={columnMenuOpen}
-          onClick={() => setColumnMenuOpen((open) => !open)}
-        >
-          <CogIcon />
-        </button>
-        {columnMenuOpen ? (
-          <div className="column-menu-popover">
-            {table.getAllLeafColumns().map((column) => (
-              <label key={column.id} className="column-menu-item">
-                <input type="checkbox" checked={column.getIsVisible()} onChange={column.getToggleVisibilityHandler()} />
-                <span>{COLUMN_LABELS[column.id] ?? column.id}</span>
-              </label>
-            ))}
-          </div>
-        ) : null}
+      <div className="table-panel-controls">
+        {headerControls}
+        <div className="table-column-menu" ref={columnMenuRef}>
+          <button
+            type="button"
+            className="column-menu-button"
+            aria-label="Show or hide columns"
+            aria-expanded={columnMenuOpen}
+            onClick={() => setColumnMenuOpen((open) => !open)}
+          >
+            <CogIcon />
+          </button>
+          {columnMenuOpen ? (
+            <div className="column-menu-popover">
+              {table.getAllLeafColumns().map((column) => (
+                <label key={column.id} className="column-menu-item">
+                  <input type="checkbox" checked={column.getIsVisible()} onChange={column.getToggleVisibilityHandler()} />
+                  <span>{COLUMN_LABELS[column.id] ?? column.id}</span>
+                </label>
+              ))}
+            </div>
+          ) : null}
+        </div>
       </div>
       <div className="table-horizontal-scroll">
         <div className="table-header" style={{ minWidth: totalWidth }}>

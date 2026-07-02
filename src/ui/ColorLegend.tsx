@@ -18,6 +18,24 @@ export const COLOR_TONES = [
 
 export type ColorTone = (typeof COLOR_TONES)[number][0];
 
+export const getRequestColorFilterTones = (request: NetworkRequest): ColorTone[] => {
+  const tones: ColorTone[] = [];
+
+  if (request.state === 'pending') tones.push('pending');
+  if (request.failed) tones.push('failed');
+  if (request.status !== null && request.status >= 500) tones.push('server-error');
+  if (request.status !== null && request.status >= 400 && request.status < 500) tones.push('client-error');
+  if (request.status !== null && request.status >= 300 && request.status < 400) tones.push('redirect');
+  if (request.status !== null && request.status >= 200 && request.status < 300) tones.push('success');
+  if (request.graphql) tones.push('graphql');
+  if (request.graphql?.operationType === 'mutation') tones.push('graphql-mutation');
+  if (request.graphql?.errors?.length) tones.push('graphql-error');
+  if (request.tags.includes('slow')) tones.push('slow');
+  if (request.cached) tones.push('cached');
+
+  return tones;
+};
+
 export const getRequestColorTone = (request: NetworkRequest): ColorTone | undefined => {
   if (request.state === 'pending') return 'pending';
   if (request.failed) return 'failed';

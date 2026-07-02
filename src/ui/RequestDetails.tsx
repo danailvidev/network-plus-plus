@@ -258,6 +258,7 @@ const createBodyViewerTheme = (prefersDarkTheme: boolean) => [
   search({ top: true }),
   syntaxHighlighting(codeHighlightStyle),
   highlightSelectionMatches({ minSelectionLength: 1, maxMatches: 500, wholeWords: false }),
+  EditorView.lineWrapping,
   bodyViewerKeymap
 ];
 
@@ -482,7 +483,8 @@ const BodyViewer = ({ value, mimeType, searchQuery = '', showScrollOverview = fa
   const [isJsonCollapsed, setIsJsonCollapsed] = useState(false);
   const isJsonCollapsedRef = useRef(false);
   const [didCopyJson, setDidCopyJson] = useState(false);
-  const canUseJsonActions = showJsonFoldingControls && parsedBody.type === 'json' && Boolean(editorView);
+  const canFoldJson = showJsonFoldingControls && parsedBody.type === 'json' && Boolean(editorView);
+  const canCopyResponse = showJsonFoldingControls && Boolean(value);
   const editorExtensions = useMemo(
     () => [...createBodyViewerTheme(prefersDarkTheme), ...(parsedBody.type === 'json' ? [json()] : [])],
     [parsedBody.type, prefersDarkTheme]
@@ -493,6 +495,16 @@ const BodyViewer = ({ value, mimeType, searchQuery = '', showScrollOverview = fa
     setIsJsonCollapsed(false);
     setDidCopyJson(false);
   }, [parsedBody.text]);
+
+  useEffect(() => {
+    if (!editorView || searchQuery.trim()) {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      editorView.scrollDOM.scrollTo({ top: 0, left: 0 });
+    });
+  }, [editorView, parsedBody.text, searchQuery]);
 
   useEffect(() => {
     if (!editorView) {
@@ -533,7 +545,7 @@ const BodyViewer = ({ value, mimeType, searchQuery = '', showScrollOverview = fa
     window.requestAnimationFrame(() => editorView.scrollDOM.dispatchEvent(new Event('scroll')));
   };
 
-  const copyJsonResponse = async () => {
+  const copyResponseBody = async () => {
     await copyText(parsedBody.text);
     setDidCopyJson(true);
     window.setTimeout(() => setDidCopyJson(false), 1400);
@@ -551,7 +563,7 @@ const BodyViewer = ({ value, mimeType, searchQuery = '', showScrollOverview = fa
             <button
               type="button"
               className="ghost-button compact-button"
-              disabled={!canUseJsonActions}
+              disabled={!canFoldJson}
               onClick={toggleJsonFolding}
               aria-pressed={isJsonCollapsed}
             >
@@ -560,10 +572,10 @@ const BodyViewer = ({ value, mimeType, searchQuery = '', showScrollOverview = fa
             <button
               type="button"
               className="ghost-button body-toolbar-icon-button"
-              disabled={!canUseJsonActions}
-              onClick={() => void copyJsonResponse()}
-              aria-label="Copy JSON response"
-              title={didCopyJson ? 'Copied' : 'Copy JSON response'}
+              disabled={!canCopyResponse}
+              onClick={() => void copyResponseBody()}
+              aria-label="Copy response body"
+              title={didCopyJson ? 'Copied' : 'Copy response body'}
             >
               <CopyIcon />
             </button>
