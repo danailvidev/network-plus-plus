@@ -1,6 +1,6 @@
 # Security Policy
 
-Network++ handles network request metadata and, when enabled by the user, request and response bodies. Treat all captured traffic as potentially sensitive.
+Network++ handles network request metadata, request bodies, and response bodies exposed by the Chrome DevTools network API. Treat all captured traffic as potentially sensitive.
 
 ## Reporting A Vulnerability
 
@@ -20,7 +20,7 @@ Helpful reports include:
 Network++ is designed around local-first defaults:
 
 - Captured request data stays in the browser.
-- Response body capture is opt-in.
+- Request and response data is used locally for inspection, search, comparison, and export workflows.
 - Settings and saved filters are stored in `chrome.storage.local`.
 - Exports are redacted by default.
 

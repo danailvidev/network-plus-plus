@@ -63,7 +63,7 @@ Export all requests, filtered requests, or a selected request into formats that 
 
 ### Local-First Privacy
 
-Captured data stays local to the browser. Response body capture is opt-in, settings and saved filters are stored in `chrome.storage.local`, and exports are redacted by default.
+Captured request and response data stays local to the browser, settings and saved filters are stored in `chrome.storage.local`, and exports are redacted by default.
 
 ## Screenshots
 
@@ -127,6 +127,10 @@ The launch site lives in `docs/` and is intentionally static. To publish it:
 4. Set the source to `Deploy from a branch`.
 5. Select the default branch and `/docs`.
 
+## Chrome Web Store
+
+Before submitting an update or requesting Featured consideration, review the [Chrome Web Store preparation checklist](docs/chrome-web-store.md). It covers the current listing copy, privacy disclosure draft, reviewer test instructions, and launch asset requirements based on Google's extension best practices.
+
 ## Roadmap
 
 - Chrome Web Store package and release workflow.
@@ -141,7 +145,7 @@ Contributions are welcome. Please read `CONTRIBUTING.md` before opening a pull r
 
 ## Security And Privacy
 
-Network++ handles potentially sensitive request data. Please do not open public issues with secrets, tokens, production payloads, or private URLs. See `SECURITY.md` for responsible reporting guidance.
+Network++ handles potentially sensitive request and response data. Captured data, settings, and saved sessions stay in `chrome.storage.local`, and exports are redacted by default. Please do not open public issues with secrets, tokens, production payloads, or private URLs. See `SECURITY.md` for responsible reporting guidance and `docs/privacy-policy.md` for the public privacy policy draft.
 
 ## License
 
