@@ -37,6 +37,9 @@ type NetworkTableProps = {
   selectedColorTones: ReadonlySet<ColorTone>;
   duplicateRequestCounts: ReadonlyMap<string, number>;
   requestInsightCounts: ReadonlyMap<string, number>;
+  diffBaseRequest?: NetworkRequest;
+  onSetDiffBaseRequest?: (request: NetworkRequest) => void;
+  onClearDiffBaseRequest?: () => void;
   headerControls?: ReactNode;
 };
 
@@ -204,6 +207,9 @@ export const NetworkTable = memo(function NetworkTable({
   selectedColorTones,
   duplicateRequestCounts,
   requestInsightCounts,
+  diffBaseRequest,
+  onSetDiffBaseRequest,
+  onClearDiffBaseRequest,
   headerControls
 }: NetworkTableProps) {
   const tableRef = useRef<HTMLDivElement>(null);
@@ -689,11 +695,12 @@ export const NetworkTable = memo(function NetworkTable({
                 const request = row.original;
                 const rowTone = getRequestColorTone(request);
                 const toneClass = colorEnabled && rowTone && selectedColorTones.has(rowTone) ? `tone-${rowTone}` : '';
+                const diffBaseClass = request.id === diffBaseRequest?.id ? 'diff-base' : '';
 
                 return (
                   <div
                     key={row.id}
-                    className={`table-row request-row ${toneClass} ${request.id === activeRequestId ? 'active' : ''}`}
+                    className={`table-row request-row ${toneClass} ${diffBaseClass} ${request.id === activeRequestId ? 'active' : ''}`}
                     style={{ transform: `translateY(${virtualRow.start}px)` }}
                     onClick={() => setActiveRequestId(request.id)}
                     onContextMenu={(event) => openRequestContextMenu(event, request)}
@@ -729,7 +736,10 @@ export const NetworkTable = memo(function NetworkTable({
         <div ref={requestContextMenuRef}>
           <RequestContextMenu
             request={requestContextMenu.request}
+            diffBaseRequest={diffBaseRequest}
             position={requestContextMenu.position}
+            onSetDiffBaseRequest={onSetDiffBaseRequest}
+            onClearDiffBaseRequest={onClearDiffBaseRequest}
             onClose={() => setRequestContextMenu(undefined)}
           />
         </div>

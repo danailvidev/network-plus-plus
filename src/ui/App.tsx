@@ -248,6 +248,7 @@ export const App = () => {
   const [activeInsightFilters, setActiveInsightFilters] = useState<ReadonlySet<InsightSummaryFilterId>>(() => new Set());
   const [activeOperationFilters, setActiveOperationFilters] = useState<ReadonlySet<string>>(() => new Set());
   const [activeDuplicateFilters, setActiveDuplicateFilters] = useState<ReadonlySet<string>>(() => new Set());
+  const [diffBaseRequestId, setDiffBaseRequestId] = useState<string | undefined>();
   const requests = useRequestsStore((state) => state.requests);
   const activeRequestId = useRequestsStore((state) => state.activeRequestId);
   const clearRequests = useRequestsStore((state) => state.clearRequests);
@@ -377,6 +378,16 @@ export const App = () => {
     [activeInsightRequestIds, baseVisibleRequests]
   );
   const activeRequest = useMemo(() => fetchXhrRequests.find((request) => request.id === activeRequestId), [activeRequestId, fetchXhrRequests]);
+  const diffBaseRequest = useMemo(
+    () => fetchXhrRequests.find((request) => request.id === diffBaseRequestId),
+    [diffBaseRequestId, fetchXhrRequests]
+  );
+
+  useEffect(() => {
+    if (diffBaseRequestId && !diffBaseRequest) {
+      setDiffBaseRequestId(undefined);
+    }
+  }, [diffBaseRequest, diffBaseRequestId]);
 
   const failedCount = useMemo(
     () =>
@@ -514,6 +525,12 @@ export const App = () => {
     setHasCustomDetailsLayout(true);
     setDetailsLayout((currentLayout) => (currentLayout === 'bottom' ? 'side' : 'bottom'));
   }, []);
+  const setDiffBaseRequest = useCallback((request: NetworkRequest) => {
+    setDiffBaseRequestId(request.id);
+  }, []);
+  const clearDiffBaseRequest = useCallback(() => {
+    setDiffBaseRequestId(undefined);
+  }, []);
 
   const toggleColorTone = useCallback((tone: ColorTone) => {
     setSelectedColorTones((currentTones) => {
@@ -635,7 +652,14 @@ export const App = () => {
             />
             Preserve log
           </label>
-          <button type="button" className="secondary-button compact-button" onClick={clearRequests}>
+          <button
+            type="button"
+            className="secondary-button compact-button"
+            onClick={() => {
+              clearDiffBaseRequest();
+              clearRequests();
+            }}
+          >
             Clear
           </button>
         </div>
@@ -672,6 +696,9 @@ export const App = () => {
             selectedColorTones={selectedColorTones}
             duplicateRequestCounts={insights.duplicateRequestCounts}
             requestInsightCounts={insights.requestInsightCounts}
+            diffBaseRequest={diffBaseRequest}
+            onSetDiffBaseRequest={setDiffBaseRequest}
+            onClearDiffBaseRequest={clearDiffBaseRequest}
             headerControls={
               <>
                 <ExportMenu allRequests={fetchXhrRequests} filteredRequests={visibleRequests} activeRequest={activeRequest} />
@@ -722,9 +749,12 @@ export const App = () => {
         {hasDetailsPanel ? (
           <RequestDetails
             request={activeRequest}
+            diffBaseRequest={diffBaseRequest}
             searchQuery={filterMode === 'search' ? debouncedFilterQuery : ''}
             insightCount={activeRequest ? insights.requestInsightCounts.get(activeRequest.id) : undefined}
             layout={detailsLayout}
+            onSetDiffBaseRequest={setDiffBaseRequest}
+            onClearDiffBaseRequest={clearDiffBaseRequest}
             onToggleLayout={toggleDetailsLayout}
           />
         ) : null}

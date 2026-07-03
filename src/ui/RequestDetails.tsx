@@ -16,16 +16,20 @@ import { formatBytes, formatDuration, formatTime, prettyJson } from '../utils/fo
 import type { DetailsLayout } from './App';
 import { GraphQLDetails } from './GraphQLDetails';
 import { CopyIcon, PanelBottomIcon, PanelRightIcon, XIcon } from './icons';
+import { RequestDiff } from './RequestDiff';
 
 type RequestDetailsProps = {
   request: NetworkRequest | undefined;
+  diffBaseRequest?: NetworkRequest;
   searchQuery: string;
   insightCount?: number;
   layout: DetailsLayout;
+  onSetDiffBaseRequest: (request: NetworkRequest) => void;
+  onClearDiffBaseRequest: () => void;
   onToggleLayout: () => void;
 };
 
-type DetailsTab = 'summary' | 'headers' | 'query' | 'request' | 'response' | 'graphql' | 'timing' | 'raw' | 'export';
+type DetailsTab = 'summary' | 'headers' | 'query' | 'request' | 'response' | 'graphql' | 'diff' | 'timing' | 'raw' | 'export';
 type ParsedBody = {
   text: string;
   type: 'json' | 'form' | 'text';
@@ -53,13 +57,24 @@ const TABS: Array<{ id: DetailsTab; label: string }> = [
   { id: 'request', label: 'Request Body' },
   { id: 'response', label: 'Response Body' },
   { id: 'graphql', label: 'GraphQL' },
+  { id: 'diff', label: 'Diff' },
   { id: 'timing', label: 'Timing' },
   { id: 'raw', label: 'Raw' },
   { id: 'export', label: 'Export' }
 ];
 
-const getVisibleTabs = (request: NetworkRequest): Array<{ id: DetailsTab; label: string }> =>
-  TABS.filter((tab) => tab.id !== 'graphql' || Boolean(request.graphql));
+const getVisibleTabs = (request: NetworkRequest, diffBaseRequest: NetworkRequest | undefined): Array<{ id: DetailsTab; label: string }> =>
+  TABS.filter((tab) => {
+    if (tab.id === 'graphql') {
+      return Boolean(request.graphql);
+    }
+
+    if (tab.id === 'diff') {
+      return Boolean(diffBaseRequest && diffBaseRequest.id !== request.id);
+    }
+
+    return true;
+  });
 
 const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -623,15 +638,29 @@ const RawResponseViewer = ({ request }: { request: NetworkRequest }) => {
   );
 };
 
-export const RequestDetails = memo(function RequestDetails({ request, searchQuery, insightCount, layout, onToggleLayout }: RequestDetailsProps) {
+export const RequestDetails = memo(function RequestDetails({
+  request,
+  diffBaseRequest,
+  searchQuery,
+  insightCount,
+  layout,
+  onSetDiffBaseRequest,
+  onClearDiffBaseRequest,
+  onToggleLayout
+}: RequestDetailsProps) {
   const [activeTab, setActiveTab] = useState<DetailsTab>('response');
   const setActiveRequestId = useRequestsStore((state) => state.setActiveRequestId);
   const redactExportsByDefault = useSettingsStore((state) => state.redactExportsByDefault);
   const sensitiveFieldNames = useSettingsStore((state) => state.sensitiveFieldNames);
 
   useEffect(() => {
+    if (request && diffBaseRequest && diffBaseRequest.id !== request.id) {
+      setActiveTab('diff');
+      return;
+    }
+
     setActiveTab(request?.graphql ? 'graphql' : 'response');
-  }, [request?.graphql, request?.id]);
+  }, [diffBaseRequest?.id, request?.graphql, request?.id]);
 
   const redaction = useMemo(
     () => ({
@@ -653,7 +682,8 @@ export const RequestDetails = memo(function RequestDetails({ request, searchQuer
     await copyText(exportRequestAsCurl(request, redaction));
   };
   const nextLayoutLabel = layout === 'bottom' ? 'Move details to right side' : 'Move details to bottom';
-  const visibleTabs = getVisibleTabs(request);
+  const visibleTabs = getVisibleTabs(request, diffBaseRequest);
+  const isDiffBaseRequest = diffBaseRequest?.id === request.id;
 
   return (
     <aside className="details-panel">
@@ -664,6 +694,25 @@ export const RequestDetails = memo(function RequestDetails({ request, searchQuer
           <p>{request.domain}</p>
         </div>
         <div className="details-header-actions">
+          {diffBaseRequest ? (
+            <button
+              type="button"
+              className="ghost-button compact-button details-compare-button"
+              onClick={onClearDiffBaseRequest}
+              title={`Clear diff base: ${diffBaseRequest.method} ${diffBaseRequest.path}`}
+            >
+              Clear Compare
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="ghost-button compact-button details-compare-button"
+            onClick={() => onSetDiffBaseRequest(request)}
+            disabled={isDiffBaseRequest}
+            title={isDiffBaseRequest ? 'This request is the current compare base' : 'Use this request as the compare base'}
+          >
+            {isDiffBaseRequest ? 'Compare Base' : 'Compare'}
+          </button>
           <button
             type="button"
             className="ghost-button icon-button details-header-button"
@@ -774,6 +823,10 @@ export const RequestDetails = memo(function RequestDetails({ request, searchQuer
           <BodyViewer value={getResponseBody(request)} mimeType={request.mimeType} searchQuery={searchQuery} showJsonFoldingControls />
         ) : null}
         {activeTab === 'graphql' ? <GraphQLDetails graphql={request.graphql} /> : null}
+
+        {activeTab === 'diff' && diffBaseRequest && diffBaseRequest.id !== request.id ? (
+          <RequestDiff baseRequest={diffBaseRequest} compareRequest={request} />
+        ) : null}
 
         {activeTab === 'timing' ? (
           <section className="details-card">

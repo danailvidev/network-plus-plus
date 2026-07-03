@@ -21,7 +21,10 @@ type ExportMenuProps = {
 
 type RequestContextMenuProps = {
   request: NetworkRequest;
+  diffBaseRequest?: NetworkRequest;
   position: { x: number; y: number };
+  onSetDiffBaseRequest?: (request: NetworkRequest) => void;
+  onClearDiffBaseRequest?: () => void;
   onClose: () => void;
 };
 
@@ -138,7 +141,14 @@ export const ExportMenu = memo(function ExportMenu({ allRequests, filteredReques
   );
 });
 
-export const RequestContextMenu = memo(function RequestContextMenu({ request, position, onClose }: RequestContextMenuProps) {
+export const RequestContextMenu = memo(function RequestContextMenu({
+  request,
+  diffBaseRequest,
+  position,
+  onSetDiffBaseRequest,
+  onClearDiffBaseRequest,
+  onClose
+}: RequestContextMenuProps) {
   const redactExportsByDefault = useSettingsStore((state) => state.redactExportsByDefault);
   const sensitiveFieldNames = useSettingsStore((state) => state.sensitiveFieldNames);
   const redaction = useMemo(
@@ -155,6 +165,15 @@ export const RequestContextMenu = memo(function RequestContextMenu({ request, po
     await copyText(exportRequestAsCurl(request, redaction));
     onClose();
   };
+  const setDiffBase = () => {
+    onSetDiffBaseRequest?.(request);
+    onClose();
+  };
+  const clearDiffBase = () => {
+    onClearDiffBaseRequest?.();
+    onClose();
+  };
+  const isDiffBaseRequest = diffBaseRequest?.id === request.id;
 
   return (
     <div className="request-context-menu" style={{ left: position.x, top: position.y }} role="menu" aria-label="Request options">
@@ -183,6 +202,16 @@ export const RequestContextMenu = memo(function RequestContextMenu({ request, po
       <button type="button" className="request-context-menu-item" onClick={() => void copyRequestCurl()}>
         Copy cURL
       </button>
+      {onSetDiffBaseRequest ? (
+        <button type="button" className="request-context-menu-item" onClick={setDiffBase} disabled={isDiffBaseRequest}>
+          {isDiffBaseRequest ? 'Current Compare Base' : 'Use as Compare Base'}
+        </button>
+      ) : null}
+      {diffBaseRequest && onClearDiffBaseRequest ? (
+        <button type="button" className="request-context-menu-item" onClick={clearDiffBase}>
+          Clear Compare Base
+        </button>
+      ) : null}
     </div>
   );
 });
