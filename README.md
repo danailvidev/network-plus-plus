@@ -29,9 +29,21 @@ Network++ captures requests from the inspected tab while DevTools is open, then 
 
 ![Request filtering screenshot](docs/assets/screenshots/filters.png)
 
+### Request Diff
+
+Pick one request as the compare base, select another request, and inspect a focused diff across status, timing, query params, headers, request payloads, response bodies, and GraphQL variables. It is built for repeated calls where one small payload or response change explains the bug.
+
 ### GraphQL-Aware Inspection
 
 GraphQL traffic is detected and surfaced with operation details, operation type, variables, errors, and repeated operation insights so API debugging does not get buried inside generic POST requests.
+
+### GraphQL Variables Inspector
+
+GraphQL requests include a dedicated variables view alongside query, operation, response, and error details. Search, copy, and compare variables without digging through raw POST bodies.
+
+### Saved Debug Sessions
+
+Save captured request sets as named debug sessions, then reload them later for offline inspection, sharing-safe review, or continuing a debugging thread after the live DevTools session is gone.
 
 ### Actionable Network Insights
 
@@ -121,7 +133,7 @@ The launch site lives in `docs/` and is intentionally static. To publish it:
 - Real screenshot set captured from sample traffic.
 - More deterministic demo data for docs and testing.
 - Additional request classification rules.
-- Import/export of saved filter presets.
+- Import/export of saved filter presets and saved debug sessions.
 
 ## Contributing
 
