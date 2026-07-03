@@ -1739,6 +1739,164 @@ button.insight-row.active {
   font-size: 13px;
 }
 
+.graphql-inspector {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.graphql-operation-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.graphql-operation-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+}
+
+.graphql-operation-switcher button {
+  max-width: 220px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: transparent;
+  padding: 5px 8px;
+  color: var(--muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.graphql-operation-switcher button:hover,
+.graphql-operation-switcher button:focus-visible,
+.graphql-operation-switcher button.active {
+  border-color: var(--accent-border);
+  background: var(--accent-bg);
+  color: var(--accent-text-strong);
+}
+
+.graphql-batch-summary {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.graphql-inspector-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  min-width: 0;
+}
+
+.graphql-inspector-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: clamp(220px, 34vh, 460px);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--details-card-bg);
+}
+
+.graphql-pane-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel-strong);
+  padding: 8px 9px;
+}
+
+.graphql-pane-header h3 {
+  margin: 0;
+  color: var(--details-heading);
+  font-size: 13px;
+}
+
+.graphql-pane-search-wrap,
+.graphql-pane-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.graphql-pane-search-wrap {
+  justify-content: flex-end;
+  flex: 1 1 auto;
+}
+
+.graphql-pane-search span {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.graphql-pane-search input {
+  width: clamp(120px, 16vw, 210px);
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--field-bg);
+  padding: 5px 8px;
+  color: var(--text);
+  font-size: 12px;
+}
+
+.graphql-pane-search input:focus-visible {
+  border-color: var(--accent);
+  outline: 2px solid var(--accent-bg-strong);
+  outline-offset: 1px;
+}
+
+.graphql-pane-meta {
+  border-bottom: 1px solid var(--border);
+  padding: 5px 9px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.graphql-pane-content {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.graphql-pane-content pre {
+  flex: 1 1 auto;
+  min-height: 0;
+  border-radius: 0;
+}
+
+.graphql-pane-copy-button {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  opacity: 0;
+  box-shadow: var(--popover-shadow);
+  background: var(--menu-button-bg);
+  transition: opacity 120ms ease;
+  pointer-events: none;
+}
+
+.graphql-pane-content:hover .graphql-pane-copy-button,
+.graphql-pane-content:focus-within .graphql-pane-copy-button {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 .kv-table {
   width: 100%;
   border-collapse: collapse;
@@ -1930,6 +2088,32 @@ button.insight-row.active {
     width: 34px;
     min-height: 86px;
     padding: 5px;
+  }
+}
+
+@media (max-width: 900px) {
+  .graphql-operation-card,
+  .graphql-pane-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .graphql-operation-switcher {
+    justify-content: flex-start;
+  }
+
+  .graphql-inspector-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .graphql-pane-search,
+  .graphql-pane-search-wrap,
+  .graphql-pane-search input {
+    width: 100%;
+  }
+
+  .graphql-pane-search-wrap {
+    justify-content: flex-start;
   }
 }
 

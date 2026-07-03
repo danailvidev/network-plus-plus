@@ -630,8 +630,8 @@ export const RequestDetails = memo(function RequestDetails({ request, searchQuer
   const sensitiveFieldNames = useSettingsStore((state) => state.sensitiveFieldNames);
 
   useEffect(() => {
-    setActiveTab('response');
-  }, [request?.id]);
+    setActiveTab(request?.graphql ? 'graphql' : 'response');
+  }, [request?.graphql, request?.id]);
 
   const redaction = useMemo(
     () => ({
