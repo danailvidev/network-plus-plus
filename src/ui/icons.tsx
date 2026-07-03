@@ -32,11 +32,12 @@ export const DownloadIcon = ({ className }: IconProps) => (
 );
 
 export const FolderClockIcon = ({ className }: IconProps) => (
-  <svg className={className} viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2">
-    <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v3" />
-    <path d="M3 7v10a2 2 0 0 0 2 2h7" />
-    <circle cx="17" cy="17" r="4" />
-    <path d="M17 15v2l1.5 1" />
+  <svg className={className} viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2">
+    <path d="M7 5H3.5v14H7" />
+    <path d="M17 5h3.5v14H17" />
+    <text x="12" y="15.4" fill="currentColor" stroke="none" textAnchor="middle" fontFamily="ui-sans-serif, system-ui, sans-serif" fontSize="7.4" fontWeight="900">
+      REC
+    </text>
   </svg>
 );
 
