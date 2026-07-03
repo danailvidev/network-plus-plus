@@ -5,6 +5,7 @@ import { DevtoolsNetworkCapture } from '../network/capture';
 import { isFetchXhrRequest, type NetworkRequest } from '../network/request-model';
 import { parseSearchQuery, type ComparisonOperator, type SearchToken } from '../search/parser';
 import { useRequestsStore } from '../state/requests-store';
+import { useSessionsStore } from '../state/sessions-store';
 import { useSettingsStore } from '../state/settings-store';
 import { COLOR_TONES, ColorLegend, getRequestColorFilterTones, type ColorTone } from './ColorLegend';
 import { ExportMenu } from './ExportMenu';
@@ -12,6 +13,7 @@ import { PaletteIcon } from './icons';
 import { InsightsPanel, type InsightSummaryFilterId } from './InsightsPanel';
 import { NetworkTable } from './NetworkTable';
 import { RequestDetails } from './RequestDetails';
+import { SavedSessionsMenu } from './SavedSessionsMenu';
 import { useCloseMenuOnOutsideClick } from './useCloseMenuOnOutsideClick';
 
 const DETAILS_MIN_PERCENT = 22;
@@ -251,6 +253,7 @@ export const App = () => {
   const clearRequests = useRequestsStore((state) => state.clearRequests);
   const settingsHydrated = useSettingsStore((state) => state.hydrated);
   const hydrateSettings = useSettingsStore((state) => state.hydrate);
+  const hydrateSessions = useSessionsStore((state) => state.hydrate);
   const preserveLogOnReload = useSettingsStore((state) => state.preserveLogOnReload);
   const insightWidgetsCollapsed = useSettingsStore((state) => state.insightWidgetsCollapsed);
   const updateSettings = useSettingsStore((state) => state.updateSettings);
@@ -258,6 +261,10 @@ export const App = () => {
   useEffect(() => {
     void hydrateSettings();
   }, [hydrateSettings]);
+
+  useEffect(() => {
+    void hydrateSessions();
+  }, [hydrateSessions]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(max-width: 1100px)');
@@ -668,6 +675,7 @@ export const App = () => {
             headerControls={
               <>
                 <ExportMenu allRequests={fetchXhrRequests} filteredRequests={visibleRequests} activeRequest={activeRequest} />
+                <SavedSessionsMenu requests={fetchXhrRequests} />
                 <div className="coloring-menu" ref={coloringMenuRef}>
                   <button
                     type="button"

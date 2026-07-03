@@ -15,6 +15,7 @@ type RequestsStore = {
   addRequests: (requests: NetworkRequest[]) => void;
   upsertRequest: (request: NetworkRequest) => void;
   upsertRequests: (requests: NetworkRequest[]) => void;
+  restoreRequests: (requests: NetworkRequest[]) => void;
   clearRequests: () => void;
   setActiveRequestId: (id: string | undefined) => void;
 };
@@ -65,6 +66,12 @@ export const useRequestsStore = create<RequestsStore>((set, get) => ({
       return { requests, activeRequestId };
     });
   },
+  restoreRequests: (restoredRequests) =>
+    set({
+      requests: restoredRequests.slice(-MAX_CAPTURED_REQUESTS),
+      activeRequestId: undefined,
+      clearedRequestIds: new Set()
+    }),
   clearRequests: () =>
     set((state) => ({
       requests: [],

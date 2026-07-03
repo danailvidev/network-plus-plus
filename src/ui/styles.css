@@ -1188,6 +1188,11 @@ button.insight-row.active {
   flex: 0 0 auto;
 }
 
+.saved-sessions-menu {
+  position: relative;
+  flex: 0 0 auto;
+}
+
 .column-menu-button {
   display: inline-flex;
   align-items: center;
@@ -1241,6 +1246,78 @@ button.insight-row.active {
 
 .column-menu-item:hover {
   background: var(--accent-bg);
+}
+
+.saved-sessions-popover {
+  z-index: 8;
+  width: min(340px, calc(100vw - 32px));
+  max-height: min(420px, calc(100vh - 120px));
+  overflow: auto;
+}
+
+.sessions-divider {
+  height: 1px;
+  margin: 2px 0;
+  background: var(--border);
+}
+
+.saved-session-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.saved-session-load,
+.saved-session-delete {
+  cursor: pointer;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+}
+
+.saved-session-load {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 7px 8px;
+  text-align: left;
+}
+
+.saved-session-load strong,
+.saved-session-load span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.saved-session-load span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.saved-session-delete {
+  color: var(--danger-text);
+  padding: 6px 8px;
+  font-size: 12px;
+}
+
+.saved-session-load:hover,
+.saved-session-load:focus-visible,
+.saved-session-delete:hover,
+.saved-session-delete:focus-visible {
+  background: var(--accent-bg);
+  outline: none;
+}
+
+.empty-sessions {
+  margin: 0;
+  color: var(--muted);
+  padding: 7px 8px;
+  font-size: 12px;
 }
 
 .column-resizer {
