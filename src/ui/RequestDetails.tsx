@@ -10,7 +10,7 @@ import { tags } from '@lezer/highlight';
 import { exportRequestAsCurl } from '../export/curl-export';
 import type { HeaderRecord, NetworkRequest } from '../network/request-model';
 import { useRequestsStore } from '../state/requests-store';
-import { useSettingsStore } from '../state/settings-store';
+import { useSettingsStore, type RequestDetailsTabSetting } from '../state/settings-store';
 import { copyText } from '../utils/download';
 import { formatBytes, formatDuration, formatTime, prettyJson } from '../utils/format';
 import type { DetailsLayout } from './App';
@@ -29,7 +29,7 @@ type RequestDetailsProps = {
   onToggleLayout: () => void;
 };
 
-type DetailsTab = 'summary' | 'headers' | 'query' | 'request' | 'response' | 'graphql' | 'diff' | 'timing' | 'raw' | 'export';
+type DetailsTab = RequestDetailsTabSetting;
 type ParsedBody = {
   text: string;
   type: 'json' | 'form' | 'text';
@@ -63,6 +63,8 @@ const TABS: Array<{ id: DetailsTab; label: string }> = [
   { id: 'export', label: 'Export' }
 ];
 
+const DEFAULT_DETAILS_TAB: DetailsTab = 'response';
+
 const getVisibleTabs = (request: NetworkRequest, diffBaseRequest: NetworkRequest | undefined): Array<{ id: DetailsTab; label: string }> =>
   TABS.filter((tab) => {
     if (tab.id === 'graphql') {
@@ -75,6 +77,9 @@ const getVisibleTabs = (request: NetworkRequest, diffBaseRequest: NetworkRequest
 
     return true;
   });
+
+const resolveDetailsTab = (request: NetworkRequest, diffBaseRequest: NetworkRequest | undefined, preferredTab: DetailsTab): DetailsTab =>
+  getVisibleTabs(request, diffBaseRequest).some((tab) => tab.id === preferredTab) ? preferredTab : DEFAULT_DETAILS_TAB;
 
 const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -648,19 +653,20 @@ export const RequestDetails = memo(function RequestDetails({
   onClearDiffBaseRequest,
   onToggleLayout
 }: RequestDetailsProps) {
-  const [activeTab, setActiveTab] = useState<DetailsTab>('response');
+  const [activeTab, setActiveTab] = useState<DetailsTab>(DEFAULT_DETAILS_TAB);
   const setActiveRequestId = useRequestsStore((state) => state.setActiveRequestId);
   const redactExportsByDefault = useSettingsStore((state) => state.redactExportsByDefault);
   const sensitiveFieldNames = useSettingsStore((state) => state.sensitiveFieldNames);
+  const lastRequestDetailsTab = useSettingsStore((state) => state.lastRequestDetailsTab);
+  const updateSettings = useSettingsStore((state) => state.updateSettings);
 
   useEffect(() => {
-    if (request && diffBaseRequest && diffBaseRequest.id !== request.id) {
-      setActiveTab('diff');
+    if (!request) {
       return;
     }
 
-    setActiveTab(request?.graphql ? 'graphql' : 'response');
-  }, [diffBaseRequest?.id, request?.graphql, request?.id]);
+    setActiveTab(resolveDetailsTab(request, diffBaseRequest, lastRequestDetailsTab));
+  }, [diffBaseRequest?.id, lastRequestDetailsTab, request?.graphql, request?.id]);
 
   const redaction = useMemo(
     () => ({
@@ -684,6 +690,26 @@ export const RequestDetails = memo(function RequestDetails({
   const nextLayoutLabel = layout === 'bottom' ? 'Move details to right side' : 'Move details to bottom';
   const visibleTabs = getVisibleTabs(request, diffBaseRequest);
   const isDiffBaseRequest = diffBaseRequest?.id === request.id;
+  const canCompareWithBaseRequest = Boolean(diffBaseRequest && !isDiffBaseRequest);
+  const isBodyTab = activeTab === 'request' || activeTab === 'response' || activeTab === 'raw';
+  const selectTab = (tab: DetailsTab) => {
+    setActiveTab(tab);
+    void updateSettings({ lastRequestDetailsTab: tab });
+  };
+  const handleCompareClick = () => {
+    if (canCompareWithBaseRequest) {
+      selectTab('diff');
+      return;
+    }
+
+    onSetDiffBaseRequest(request);
+  };
+  const compareButtonLabel = isDiffBaseRequest ? 'Compare Base' : canCompareWithBaseRequest ? 'Compare' : 'Set Compare Base';
+  const compareButtonTitle = isDiffBaseRequest
+    ? 'This request is the current compare base'
+    : canCompareWithBaseRequest
+      ? `Compare against base: ${diffBaseRequest?.method} ${diffBaseRequest?.path}`
+      : 'Use this request as the compare base';
 
   return (
     <aside className="details-panel">
@@ -707,11 +733,11 @@ export const RequestDetails = memo(function RequestDetails({
           <button
             type="button"
             className="ghost-button compact-button details-compare-button"
-            onClick={() => onSetDiffBaseRequest(request)}
+            onClick={handleCompareClick}
             disabled={isDiffBaseRequest}
-            title={isDiffBaseRequest ? 'This request is the current compare base' : 'Use this request as the compare base'}
+            title={compareButtonTitle}
           >
-            {isDiffBaseRequest ? 'Compare Base' : 'Compare'}
+            {compareButtonLabel}
           </button>
           <button
             type="button"
@@ -736,13 +762,13 @@ export const RequestDetails = memo(function RequestDetails({
 
       <nav className="details-tabs" aria-label="Request detail tabs">
         {visibleTabs.map((tab) => (
-          <button type="button" key={tab.id} className={tab.id === activeTab ? 'active' : ''} onClick={() => setActiveTab(tab.id)}>
+          <button type="button" key={tab.id} className={tab.id === activeTab ? 'active' : ''} onClick={() => selectTab(tab.id)}>
             {tab.label}
           </button>
         ))}
       </nav>
 
-      <div className="details-content">
+      <div className={`details-content${isBodyTab ? ' body-details-content' : ''}`}>
         {activeTab === 'summary' ? (
           <div className="details-stack">
             <section className="details-card">

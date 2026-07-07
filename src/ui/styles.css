@@ -1729,6 +1729,12 @@ button.insight-row.active {
   padding: 10px;
 }
 
+.details-content.body-details-content {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .details-stack {
   display: grid;
   gap: 10px;
@@ -2094,6 +2100,11 @@ button.insight-row.active {
   height: 100%;
 }
 
+.details-content.body-details-content > .body-viewer {
+  flex: 1 1 auto;
+  height: auto;
+}
+
 .body-viewer-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -2306,16 +2317,29 @@ button.insight-row.active {
 .cm-scroller {
   min-width: 0;
   overflow: auto;
-  scrollbar-gutter: stable both-edges;
+  scrollbar-gutter: stable;
+}
+
+.body-viewer .cm-scroller {
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-y: scroll;
 }
 
 .body-viewer .cm-content {
+  width: 100%;
   min-width: 100%;
+  max-width: 100%;
   padding-right: 12px;
 }
 
 .body-viewer .cm-lineWrapping .cm-line {
   overflow-wrap: anywhere;
+}
+
+.body-viewer .cm-lineNumbers .cm-gutterElement {
+  min-width: 7ch;
+  text-align: right;
 }
 
 .cm-gutters {

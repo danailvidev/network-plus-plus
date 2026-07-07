@@ -9,6 +9,8 @@ const savedFilterSchema = z.object({
   query: z.string()
 });
 
+const requestDetailsTabSchema = z.enum(['summary', 'headers', 'query', 'request', 'response', 'graphql', 'diff', 'timing', 'raw', 'export']);
+
 const settingsSchema = z.object({
   preserveLogOnReload: z.boolean().default(false),
   insightWidgetsCollapsed: z.boolean().default(false),
@@ -23,10 +25,12 @@ const settingsSchema = z.object({
     { id: 'large-responses', name: 'Large responses', query: 'size:>1mb' },
     { id: 'non-cached-requests', name: 'Non-cached requests', query: 'cached:false' }
   ]),
-  recentSearches: z.array(z.string()).default([])
+  recentSearches: z.array(z.string()).default([]),
+  lastRequestDetailsTab: requestDetailsTabSchema.default('response')
 });
 
 export type SavedFilter = z.infer<typeof savedFilterSchema>;
+export type RequestDetailsTabSetting = z.infer<typeof requestDetailsTabSchema>;
 export type Settings = z.infer<typeof settingsSchema>;
 
 type SettingsStore = Settings & {
