@@ -7,6 +7,7 @@ import {
   useState,
   type CSSProperties,
   type DragEvent,
+  type KeyboardEvent,
   type MouseEvent,
   type PointerEvent,
   type ReactNode
@@ -414,10 +415,16 @@ export const NetworkTable = memo(function NetworkTable({
   const openRequestContextMenu = (event: MouseEvent<HTMLDivElement>, request: NetworkRequest) => {
     event.preventDefault();
     setActiveRequestId(request.id);
+    parentRef.current?.focus({ preventScroll: true });
     setRequestContextMenu({
       request,
       position: { x: event.clientX, y: event.clientY }
     });
+  };
+
+  const selectRequest = (request: NetworkRequest) => {
+    setActiveRequestId(request.id);
+    parentRef.current?.focus({ preventScroll: true });
   };
 
   const getAutosizeWidth = (element: HTMLElement) => {
@@ -569,6 +576,37 @@ export const NetworkTable = memo(function NetworkTable({
     scrollbarDragRef.current = undefined;
   };
 
+  const handleTableBodyKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLDivElement>) => {
+      const direction = event.key === 'ArrowDown' ? 1 : event.key === 'ArrowUp' ? -1 : 0;
+      if (direction === 0 || !activeRequestId || rows.length === 0) {
+        return;
+      }
+
+      const activeRowIndex = rows.findIndex((row) => row.original.id === activeRequestId);
+      if (activeRowIndex === -1) {
+        return;
+      }
+
+      const nextRowIndex = Math.min(rows.length - 1, Math.max(0, activeRowIndex + direction));
+      if (nextRowIndex === activeRowIndex) {
+        event.preventDefault();
+        return;
+      }
+
+      event.preventDefault();
+      const nextRequest = rows[nextRowIndex]?.original;
+      if (!nextRequest) {
+        return;
+      }
+
+      setActiveRequestId(nextRequest.id);
+      rowVirtualizer.scrollToIndex(nextRowIndex, { align: 'auto' });
+      window.requestAnimationFrame(updateBodyScrollMetrics);
+    },
+    [activeRequestId, rowVirtualizer, rows, setActiveRequestId, updateBodyScrollMetrics]
+  );
+
   useLayoutEffect(() => {
     if (activeRequestId || !latestRequestId || rows.length === 0) {
       return undefined;
@@ -684,7 +722,14 @@ export const NetworkTable = memo(function NetworkTable({
           ))}
         </div>
 
-        <div className={`table-body ${hasVerticalOverflow ? 'is-vertically-scrollable' : ''}`} ref={parentRef} onScroll={updateBodyScrollMetrics} style={{ minWidth: totalWidth }}>
+        <div
+          className={`table-body ${hasVerticalOverflow ? 'is-vertically-scrollable' : ''}`}
+          ref={parentRef}
+          tabIndex={0}
+          onKeyDown={handleTableBodyKeyDown}
+          onScroll={updateBodyScrollMetrics}
+          style={{ minWidth: totalWidth }}
+        >
           {rows.length === 0 ? (
             <div className="empty-state">No requests match the current filters.</div>
           ) : (
@@ -702,7 +747,7 @@ export const NetworkTable = memo(function NetworkTable({
                     key={row.id}
                     className={`table-row request-row ${toneClass} ${diffBaseClass} ${request.id === activeRequestId ? 'active' : ''}`}
                     style={{ transform: `translateY(${virtualRow.start}px)` }}
-                    onClick={() => setActiveRequestId(request.id)}
+                    onClick={() => selectRequest(request)}
                     onContextMenu={(event) => openRequestContextMenu(event, request)}
                   >
                     {row.getVisibleCells().map((cell) => (
