@@ -1,6 +1,6 @@
 import type { HarArchive, HarEntry } from './har';
 import { normalizeHarEntry } from './normalize';
-import { isFetchXhrRequest, type NetworkRequest } from './request-model';
+import { isFetchXhrRequest, type NetworkRequest, type ResponseBodyStatus } from './request-model';
 
 type DevtoolsRequest = chrome.devtools.network.Request;
 
@@ -12,6 +12,31 @@ type CaptureOptions = {
 };
 
 const RESPONSE_BODY_TIMEOUT_MS = 2_000;
+const MAX_TRACKED_HAR_KEYS = 2_000;
+
+const shouldKeepRequest = (request: NetworkRequest): boolean => {
+  if (!isFetchXhrRequest(request) || request.method === 'OPTIONS') {
+    return false;
+  }
+
+  if (request.state === 'pending' || request.failed || (request.status !== null && request.status >= 400) || request.graphql) {
+    return true;
+  }
+
+  return Boolean(request.responseBody);
+};
+
+const getSkippedResponseBodyStatus = (entry: HarEntry): ResponseBodyStatus => {
+  if (entry.request.method.toUpperCase() === 'OPTIONS') {
+    return 'skipped-preflight';
+  }
+
+  if (entry.response.content?.size === 0 || entry.response.bodySize === 0) {
+    return 'empty';
+  }
+
+  return 'skipped-non-json';
+};
 
 export class DevtoolsNetworkCapture {
   private requestCounter = 0;
@@ -81,7 +106,33 @@ export class DevtoolsNetworkCapture {
     this.requestCounter += 1;
     const id = `${Date.parse(entry.startedDateTime) || Date.now()}:${this.requestCounter}:${entry.request.method}:${entry.request.url}`;
     this.knownRequestIds.set(key, id);
+    this.limitTrackedHarState();
     return id;
+  }
+
+  private rememberCompletedHarEntryKey(key: string): void {
+    this.completedHarEntryKeys.add(key);
+    this.limitTrackedHarState();
+  }
+
+  private limitTrackedHarState(): void {
+    while (this.knownRequestIds.size > MAX_TRACKED_HAR_KEYS) {
+      const oldestKey = this.knownRequestIds.keys().next().value;
+      if (!oldestKey) {
+        break;
+      }
+
+      this.knownRequestIds.delete(oldestKey);
+    }
+
+    while (this.completedHarEntryKeys.size > MAX_TRACKED_HAR_KEYS) {
+      const oldestKey = this.completedHarEntryKeys.keys().next().value;
+      if (!oldestKey) {
+        break;
+      }
+
+      this.completedHarEntryKeys.delete(oldestKey);
+    }
   }
 
   private async loadInitialHar(options: CaptureOptions): Promise<void> {
@@ -97,13 +148,14 @@ export class DevtoolsNetworkCapture {
         const normalized = normalizeHarEntry(entry, {
           id: this.idForEntry(entry),
           includeResponseBody: shouldCaptureResponseBody,
-          responseBody: shouldCaptureResponseBody ? entry.response.content?.text : undefined
+          responseBody: shouldCaptureResponseBody ? entry.response.content?.text : undefined,
+          responseBodyStatus: shouldCaptureResponseBody ? undefined : getSkippedResponseBodyStatus(entry)
         });
         if (normalized.state !== 'pending') {
-          this.completedHarEntryKeys.add(key);
+          this.rememberCompletedHarEntryKey(key);
         }
 
-        if (isFetchXhrRequest(normalized)) {
+        if (shouldKeepRequest(normalized)) {
           options.onRequest(normalized);
         }
       }
@@ -116,20 +168,33 @@ export class DevtoolsNetworkCapture {
     try {
       const entry = request as unknown as HarEntry;
       const shouldCaptureResponseBody = (options.shouldCaptureResponseBodies?.() ?? false) && this.isJsonResponse(entry);
-      const normalizedEntry = normalizeHarEntry(entry, { id: this.idForEntry(entry), includeResponseBody: shouldCaptureResponseBody });
+      const normalizedEntry = normalizeHarEntry(entry, {
+        id: this.idForEntry(entry),
+        includeResponseBody: shouldCaptureResponseBody,
+        responseBodyStatus: shouldCaptureResponseBody ? undefined : getSkippedResponseBodyStatus(entry)
+      });
 
-      if (!isFetchXhrRequest(normalizedEntry)) {
+      if (!isFetchXhrRequest(normalizedEntry) || normalizedEntry.method === 'OPTIONS') {
         return;
       }
 
       if (!shouldCaptureResponseBody || !request.getContent) {
-        options.onRequest(normalizedEntry);
+        if (shouldKeepRequest(normalizedEntry)) {
+          options.onRequest(normalizedEntry);
+        }
         return;
       }
 
       const responseBody = await this.getResponseBodyWithTimeout(request);
 
-      options.onRequest(normalizeHarEntry(entry, { id: normalizedEntry.id, responseBody }));
+      const normalizedRequest = normalizeHarEntry(entry, {
+        id: normalizedEntry.id,
+        responseBody,
+        responseBodyStatus: responseBody ? 'captured' : 'empty'
+      });
+      if (shouldKeepRequest(normalizedRequest)) {
+        options.onRequest(normalizedRequest);
+      }
     } catch (error) {
       options.onError?.(error instanceof Error ? error : new Error(String(error)));
     }

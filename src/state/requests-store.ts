@@ -2,10 +2,36 @@ import { create } from 'zustand';
 
 import type { NetworkRequest } from '../network/request-model';
 
-const MAX_CAPTURED_REQUESTS = 2_000;
+const MAX_CAPTURED_REQUESTS = 300;
 const MAX_CLEARED_REQUEST_IDS = MAX_CAPTURED_REQUESTS * 2;
+const MAX_REQUESTS_WITH_RESPONSE_BODY = 75;
 
 const limitClearedRequestIds = (requestIds: Iterable<string>): Set<string> => new Set(Array.from(requestIds).slice(-MAX_CLEARED_REQUEST_IDS));
+
+const limitStoredRequests = (requests: NetworkRequest[], activeRequestId: string | undefined): NetworkRequest[] => {
+  const limitedRequests = requests.slice(-MAX_CAPTURED_REQUESTS);
+  let requestsWithResponseBody = 0;
+
+  for (let index = limitedRequests.length - 1; index >= 0; index -= 1) {
+    const request = limitedRequests[index];
+    if (!request?.responseBody) {
+      continue;
+    }
+
+    requestsWithResponseBody += 1;
+    if (requestsWithResponseBody <= MAX_REQUESTS_WITH_RESPONSE_BODY || request.id === activeRequestId) {
+      continue;
+    }
+
+    limitedRequests[index] = {
+      ...request,
+      responseBody: undefined,
+      responseBodyStatus: 'expired'
+    };
+  }
+
+  return limitedRequests;
+};
 
 type RequestsStore = {
   requests: NetworkRequest[];
@@ -29,7 +55,7 @@ export const useRequestsStore = create<RequestsStore>((set, get) => ({
     if (requestsToAdd.length === 0) return;
 
     set((state) => {
-      const requests = [...state.requests, ...requestsToAdd].slice(-MAX_CAPTURED_REQUESTS);
+      const requests = limitStoredRequests([...state.requests, ...requestsToAdd], state.activeRequestId);
       const requestIds = new Set(requests.map((item) => item.id));
       const activeRequestId = state.activeRequestId && requestIds.has(state.activeRequestId) ? state.activeRequestId : undefined;
 
@@ -59,7 +85,7 @@ export const useRequestsStore = create<RequestsStore>((set, get) => ({
         }
       }
 
-      const requests = next.slice(-MAX_CAPTURED_REQUESTS);
+      const requests = limitStoredRequests(next, state.activeRequestId);
       const requestIds = new Set(requests.map((item) => item.id));
       const activeRequestId = state.activeRequestId && requestIds.has(state.activeRequestId) ? state.activeRequestId : undefined;
 
@@ -68,7 +94,7 @@ export const useRequestsStore = create<RequestsStore>((set, get) => ({
   },
   restoreRequests: (restoredRequests) =>
     set({
-      requests: restoredRequests.slice(-MAX_CAPTURED_REQUESTS),
+      requests: limitStoredRequests(restoredRequests, undefined),
       activeRequestId: undefined,
       clearedRequestIds: new Set()
     }),

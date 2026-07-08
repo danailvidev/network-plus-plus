@@ -20,6 +20,14 @@ export type NetworkTag =
 
 export type NetworkRequestState = 'pending' | 'complete' | 'failed';
 
+export type ResponseBodyStatus =
+  | 'captured'
+  | 'empty'
+  | 'skipped-non-json'
+  | 'skipped-preflight'
+  | 'skipped-static'
+  | 'expired';
+
 export type RequestTiming = {
   blocked?: number;
   dns?: number;
@@ -44,6 +52,7 @@ export type NetworkRequest = {
   responseHeaders: HeaderRecord;
   requestBody?: string;
   responseBody?: string;
+  responseBodyStatus?: ResponseBodyStatus;
   mimeType?: string;
   resourceType?: string;
   startTime: number;

@@ -10,7 +10,7 @@ import {
   queryStringToRecord,
   type HarEntry
 } from './har';
-import type { NetworkRequest, NetworkTag } from './request-model';
+import type { NetworkRequest, NetworkTag, ResponseBodyStatus } from './request-model';
 
 const SLOW_REQUEST_MS = 500;
 const LARGE_RESPONSE_BYTES = 1024 * 1024;
@@ -18,6 +18,7 @@ const LARGE_RESPONSE_BYTES = 1024 * 1024;
 type NormalizeOptions = {
   id?: string;
   responseBody?: string;
+  responseBodyStatus?: ResponseBodyStatus;
   includeResponseBody?: boolean;
 };
 
@@ -87,6 +88,8 @@ export const normalizeHarEntry = (entry: HarEntry, options: NormalizeOptions = {
   const responseHeaders = headersToRecord(entry.response.headers);
   const requestBody = getPostDataText(entry);
   const responseBody = options.includeResponseBody === false ? undefined : options.responseBody ?? entry.response.content?.text;
+  const responseBodyStatus: ResponseBodyStatus =
+    options.responseBodyStatus ?? (responseBody ? 'captured' : entry.response.content?.size === 0 || entry.response.bodySize === 0 ? 'empty' : 'skipped-non-json');
   const mimeType = entry.response.content?.mimeType ?? entry.request.postData?.mimeType;
   const durationMs = getDurationMs(entry);
   const sizeBytes = getSizeBytes(entry);
@@ -115,6 +118,7 @@ export const normalizeHarEntry = (entry: HarEntry, options: NormalizeOptions = {
     responseHeaders,
     requestBody,
     responseBody,
+    responseBodyStatus,
     mimeType,
     resourceType: inferResourceType(entry, mimeType),
     startTime: Date.parse(entry.startedDateTime) || Date.now(),

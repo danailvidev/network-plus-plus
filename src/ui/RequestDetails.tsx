@@ -40,6 +40,7 @@ type BodyViewerProps = {
   value: string | undefined;
   mimeType?: string;
   searchQuery?: string;
+  missingBodyLabel?: string;
   showScrollOverview?: boolean;
   showJsonFoldingControls?: boolean;
 };
@@ -350,9 +351,21 @@ const looksLikeJson = (value: string): boolean => {
   return trimmed.startsWith('{') || trimmed.startsWith('[');
 };
 
-const parseBody = (value: string | undefined, mimeType: string | undefined): ParsedBody => {
+const responseBodyStatusLabels = {
+  captured: 'Body captured.',
+  empty: 'No response body was returned.',
+  'skipped-non-json': 'Body not captured because the response is not JSON.',
+  'skipped-preflight': 'Body not captured because this is a preflight request.',
+  'skipped-static': 'Body not captured because this is a static asset.',
+  expired: 'Body was discarded after reaching the retention limit.'
+} satisfies Record<NonNullable<NetworkRequest['responseBodyStatus']>, string>;
+
+const getMissingBodyLabel = (status: NetworkRequest['responseBodyStatus'] | undefined): string =>
+  status ? responseBodyStatusLabels[status] : 'No body captured.';
+
+const parseBody = (value: string | undefined, mimeType: string | undefined, missingBodyLabel = 'No body captured.'): ParsedBody => {
   if (!value) {
-    return { text: 'No body captured.', type: 'text', label: 'Empty' };
+    return { text: missingBodyLabel, type: 'text', label: 'Empty' };
   }
 
   const normalizedMime = mimeType?.toLowerCase() ?? '';
@@ -469,11 +482,11 @@ const formatRawResponse = (request: NetworkRequest): string => {
   const headers = Object.entries(request.responseHeaders).map(([name, value]) => `${name}: ${value}`);
   const body = getResponseBody(request) ?? '';
 
-  return [statusLine, ...headers, '', body || 'No body captured.'].join('\n');
+  return [statusLine, ...headers, '', body || getMissingBodyLabel(request.responseBodyStatus)].join('\n');
 };
 
-const BodyViewer = ({ value, mimeType, searchQuery = '', showScrollOverview = false, showJsonFoldingControls = false }: BodyViewerProps) => {
-  const parsedBody = parseBody(value, mimeType);
+const BodyViewer = ({ value, mimeType, searchQuery = '', missingBodyLabel, showScrollOverview = false, showJsonFoldingControls = false }: BodyViewerProps) => {
+  const parsedBody = parseBody(value, mimeType, missingBodyLabel);
   const prefersDarkTheme = usePrefersDarkTheme();
   const editorViewRef = useBodyViewerFindShortcut();
   const [editorView, setEditorView] = useState<EditorView | null>(null);
@@ -858,7 +871,13 @@ export const RequestDetails = memo(function RequestDetails({
 
         {activeTab === 'request' ? <BodyViewer value={request.requestBody} mimeType={request.rawHarEntry?.request.postData?.mimeType} /> : null}
         {activeTab === 'response' ? (
-          <BodyViewer value={getResponseBody(request)} mimeType={request.mimeType} searchQuery={searchQuery} showJsonFoldingControls />
+          <BodyViewer
+            value={getResponseBody(request)}
+            mimeType={request.mimeType}
+            searchQuery={searchQuery}
+            missingBodyLabel={getMissingBodyLabel(request.responseBodyStatus)}
+            showJsonFoldingControls
+          />
         ) : null}
         {activeTab === 'graphql' ? <GraphQLDetails graphql={request.graphql} /> : null}
 
