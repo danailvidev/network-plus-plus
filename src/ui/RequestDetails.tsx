@@ -397,39 +397,16 @@ const sampleOverviewLines = (text: string, maxLines = 240): string[] => {
   return Array.from({ length: maxLines }, (_, index) => lines[Math.floor(index * sampleStep)] ?? '');
 };
 
-const BodyScrollOverview = ({ text, editorView }: { text: string; editorView: EditorView | null }) => {
-  const [scrollState, setScrollState] = useState<ScrollOverviewState>({ clientHeight: 1, scrollHeight: 1, scrollTop: 0 });
+const BodyScrollOverview = ({
+  text,
+  editorView,
+  scrollState
+}: {
+  text: string;
+  editorView: EditorView | null;
+  scrollState: ScrollOverviewState;
+}) => {
   const lines = useMemo(() => sampleOverviewLines(text), [text]);
-
-  useEffect(() => {
-    if (!editorView) {
-      return undefined;
-    }
-
-    const scrollElement = editorView.scrollDOM;
-    const updateScrollState = () => {
-      setScrollState({
-        clientHeight: scrollElement.clientHeight,
-        scrollHeight: scrollElement.scrollHeight,
-        scrollTop: scrollElement.scrollTop
-      });
-    };
-
-    updateScrollState();
-    scrollElement.addEventListener('scroll', updateScrollState, { passive: true });
-    window.addEventListener('resize', updateScrollState);
-    const resizeObserver = globalThis.ResizeObserver ? new ResizeObserver(updateScrollState) : undefined;
-    resizeObserver?.observe(scrollElement);
-    if (scrollElement.firstElementChild) {
-      resizeObserver?.observe(scrollElement.firstElementChild);
-    }
-
-    return () => {
-      scrollElement.removeEventListener('scroll', updateScrollState);
-      window.removeEventListener('resize', updateScrollState);
-      resizeObserver?.disconnect();
-    };
-  }, [editorView, text]);
 
   const canScroll = scrollState.scrollHeight > scrollState.clientHeight;
   const viewportHeight = canScroll ? Math.max(12, (scrollState.clientHeight / scrollState.scrollHeight) * 100) : 100;
@@ -500,6 +477,7 @@ const BodyViewer = ({ value, mimeType, searchQuery = '', showScrollOverview = fa
   const prefersDarkTheme = usePrefersDarkTheme();
   const editorViewRef = useBodyViewerFindShortcut();
   const [editorView, setEditorView] = useState<EditorView | null>(null);
+  const [scrollState, setScrollState] = useState<ScrollOverviewState>({ clientHeight: 1, scrollHeight: 1, scrollTop: 0 });
   const [isJsonCollapsed, setIsJsonCollapsed] = useState(false);
   const isJsonCollapsedRef = useRef(false);
   const [didCopyJson, setDidCopyJson] = useState(false);
@@ -509,12 +487,46 @@ const BodyViewer = ({ value, mimeType, searchQuery = '', showScrollOverview = fa
     () => [...createBodyViewerTheme(prefersDarkTheme), ...(parsedBody.type === 'json' ? [json()] : [])],
     [parsedBody.type, prefersDarkTheme]
   );
+  const hasScrollOverview = showScrollOverview && scrollState.scrollHeight > scrollState.clientHeight + 1;
 
   useEffect(() => {
     isJsonCollapsedRef.current = false;
     setIsJsonCollapsed(false);
     setDidCopyJson(false);
   }, [parsedBody.text]);
+
+  useEffect(() => {
+    if (!editorView) {
+      setScrollState({ clientHeight: 1, scrollHeight: 1, scrollTop: 0 });
+      return undefined;
+    }
+
+    const scrollElement = editorView.scrollDOM;
+    const updateScrollState = () => {
+      setScrollState({
+        clientHeight: scrollElement.clientHeight,
+        scrollHeight: scrollElement.scrollHeight,
+        scrollTop: scrollElement.scrollTop
+      });
+    };
+
+    updateScrollState();
+    scrollElement.addEventListener('scroll', updateScrollState, { passive: true });
+    window.addEventListener('resize', updateScrollState);
+    const resizeObserver = globalThis.ResizeObserver ? new ResizeObserver(updateScrollState) : undefined;
+    resizeObserver?.observe(scrollElement);
+    if (scrollElement.firstElementChild) {
+      resizeObserver?.observe(scrollElement.firstElementChild);
+    }
+    const animationFrame = window.requestAnimationFrame(updateScrollState);
+
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      scrollElement.removeEventListener('scroll', updateScrollState);
+      window.removeEventListener('resize', updateScrollState);
+      resizeObserver?.disconnect();
+    };
+  }, [editorView, parsedBody.text]);
 
   useEffect(() => {
     if (!editorView || searchQuery.trim()) {
@@ -572,7 +584,7 @@ const BodyViewer = ({ value, mimeType, searchQuery = '', showScrollOverview = fa
   };
 
   return (
-    <div className={`body-viewer${showScrollOverview ? ' has-scroll-overview' : ''}`}>
+    <div className={`body-viewer${hasScrollOverview ? ' has-scroll-overview' : ''}`}>
       <div className="body-viewer-toolbar">
         <div className="body-viewer-toolbar-meta">
           <span>{parsedBody.label}</span>
@@ -613,7 +625,7 @@ const BodyViewer = ({ value, mimeType, searchQuery = '', showScrollOverview = fa
             setEditorView(view);
           }}
         />
-        {showScrollOverview ? <BodyScrollOverview text={parsedBody.text} editorView={editorView} /> : null}
+        {hasScrollOverview ? <BodyScrollOverview text={parsedBody.text} editorView={editorView} scrollState={scrollState} /> : null}
       </div>
     </div>
   );

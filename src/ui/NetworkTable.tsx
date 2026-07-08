@@ -88,6 +88,11 @@ type ScrollbarDragState = {
   thumbOffsetY: number;
 };
 
+const SCROLL_BOTTOM_TOLERANCE_PX = 2;
+
+const isScrolledToBottom = ({ scrollTop, scrollHeight, clientHeight }: ScrollMetrics) =>
+  scrollHeight - scrollTop - clientHeight <= SCROLL_BOTTOM_TOLERANCE_PX;
+
 const StatusBadge = ({ request }: { request: NetworkRequest }) => {
   if (request.state === 'pending') {
     return <span className="status-badge status-pending">Pending</span>;
@@ -218,6 +223,7 @@ export const NetworkTable = memo(function NetworkTable({
   const verticalScrollbarRef = useRef<HTMLDivElement>(null);
   const verticalScrollbarThumbRef = useRef<HTMLDivElement>(null);
   const scrollbarDragRef = useRef<ScrollbarDragState | undefined>(undefined);
+  const shouldFollowLatestRequestRef = useRef(true);
   const columnMenuRef = useRef<HTMLDivElement>(null);
   const requestContextMenuRef = useRef<HTMLDivElement>(null);
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -511,6 +517,8 @@ export const NetworkTable = memo(function NetworkTable({
       clientHeight: scrollElement.clientHeight
     };
 
+    shouldFollowLatestRequestRef.current = isScrolledToBottom(nextMetrics);
+
     setBodyScrollMetrics((currentMetrics) =>
       currentMetrics.scrollTop === nextMetrics.scrollTop &&
       currentMetrics.scrollHeight === nextMetrics.scrollHeight &&
@@ -608,7 +616,7 @@ export const NetworkTable = memo(function NetworkTable({
   );
 
   useLayoutEffect(() => {
-    if (activeRequestId || !latestRequestId || rows.length === 0) {
+    if (!shouldFollowLatestRequestRef.current || !latestRequestId || rows.length === 0) {
       return undefined;
     }
 
@@ -629,7 +637,7 @@ export const NetworkTable = memo(function NetworkTable({
     });
 
     return () => window.cancelAnimationFrame(frameId);
-  }, [activeRequestId, latestRequestId, rowVirtualizer, rows, updateBodyScrollMetrics]);
+  }, [latestRequestId, rowVirtualizer, rows, updateBodyScrollMetrics]);
 
   useLayoutEffect(() => {
     updateBodyScrollMetrics();

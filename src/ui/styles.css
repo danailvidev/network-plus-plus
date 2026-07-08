@@ -2323,7 +2323,7 @@ button.insight-row.active {
 .body-viewer .cm-scroller {
   max-width: 100%;
   overflow-x: hidden;
-  overflow-y: scroll;
+  overflow-y: auto;
 }
 
 .body-viewer .cm-content {

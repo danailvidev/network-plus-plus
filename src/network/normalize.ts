@@ -21,6 +21,29 @@ type NormalizeOptions = {
   includeResponseBody?: boolean;
 };
 
+const omitBodyTextFromHarEntry = (entry: HarEntry): HarEntry => ({
+  ...entry,
+  request: {
+    ...entry.request,
+    postData: entry.request.postData
+      ? {
+          ...entry.request.postData,
+          text: undefined
+        }
+      : undefined
+  },
+  response: {
+    ...entry.response,
+    content: entry.response.content
+      ? {
+          ...entry.response.content,
+          text: undefined,
+          encoding: undefined
+        }
+      : undefined
+  }
+});
+
 const createFallbackUrl = (url: string): URL => {
   try {
     return new URL(url);
@@ -101,7 +124,7 @@ export const normalizeHarEntry = (entry: HarEntry, options: NormalizeOptions = {
     failed,
     graphql,
     timing: getTiming(entry),
-    rawHarEntry: entry
+    rawHarEntry: omitBodyTextFromHarEntry(entry)
   };
 
   return {

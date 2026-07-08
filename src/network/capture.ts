@@ -12,7 +12,6 @@ type CaptureOptions = {
 };
 
 const RESPONSE_BODY_TIMEOUT_MS = 2_000;
-const HAR_POLL_INTERVAL_MS = 750;
 
 export class DevtoolsNetworkCapture {
   private requestCounter = 0;
@@ -20,7 +19,6 @@ export class DevtoolsNetworkCapture {
   private completedHarEntryKeys = new Set<string>();
   private listener?: (request: DevtoolsRequest) => void;
   private navigationListener?: (url: string) => void;
-  private harPollIntervalId?: number;
 
   start(options: CaptureOptions): void {
     if (!this.isAvailable()) {
@@ -37,7 +35,6 @@ export class DevtoolsNetworkCapture {
     this.navigationListener = (url) => options.onNavigation?.(url);
     chrome.devtools.network.onNavigated.addListener(this.navigationListener);
     void this.loadInitialHar(options);
-    this.startHarPolling(options);
   }
 
   stop(): void {
@@ -52,10 +49,8 @@ export class DevtoolsNetworkCapture {
     this.listener = undefined;
     this.navigationListener = undefined;
 
-    if (this.harPollIntervalId !== undefined) {
-      window.clearInterval(this.harPollIntervalId);
-      this.harPollIntervalId = undefined;
-    }
+    this.completedHarEntryKeys.clear();
+    this.knownRequestIds.clear();
   }
 
   private isAvailable(): boolean {
@@ -98,7 +93,12 @@ export class DevtoolsNetworkCapture {
           continue;
         }
 
-        const normalized = normalizeHarEntry(entry, { id: this.idForEntry(entry), includeResponseBody: options.shouldCaptureResponseBodies?.() ?? false });
+        const shouldCaptureResponseBody = (options.shouldCaptureResponseBodies?.() ?? false) && this.isJsonResponse(entry);
+        const normalized = normalizeHarEntry(entry, {
+          id: this.idForEntry(entry),
+          includeResponseBody: shouldCaptureResponseBody,
+          responseBody: shouldCaptureResponseBody ? entry.response.content?.text : undefined
+        });
         if (normalized.state !== 'pending') {
           this.completedHarEntryKeys.add(key);
         }
@@ -112,16 +112,10 @@ export class DevtoolsNetworkCapture {
     }
   }
 
-  private startHarPolling(options: CaptureOptions): void {
-    this.harPollIntervalId = window.setInterval(() => {
-      void this.loadInitialHar(options);
-    }, HAR_POLL_INTERVAL_MS);
-  }
-
   private async handleFinishedRequest(request: DevtoolsRequest, options: CaptureOptions): Promise<void> {
     try {
       const entry = request as unknown as HarEntry;
-      const shouldCaptureResponseBody = options.shouldCaptureResponseBodies?.() ?? false;
+      const shouldCaptureResponseBody = (options.shouldCaptureResponseBodies?.() ?? false) && this.isJsonResponse(entry);
       const normalizedEntry = normalizeHarEntry(entry, { id: this.idForEntry(entry), includeResponseBody: shouldCaptureResponseBody });
 
       if (!isFetchXhrRequest(normalizedEntry)) {
@@ -139,6 +133,20 @@ export class DevtoolsNetworkCapture {
     } catch (error) {
       options.onError?.(error instanceof Error ? error : new Error(String(error)));
     }
+  }
+
+  private isJsonResponse(entry: HarEntry): boolean {
+    const contentType =
+      entry.response.content?.mimeType ??
+      entry.response.headers?.find((header) => header.name.toLowerCase() === 'content-type')?.value ??
+      '';
+    const normalizedContentType = contentType.split(';')[0]?.trim().toLowerCase() ?? '';
+
+    return (
+      normalizedContentType === 'application/json' ||
+      normalizedContentType.endsWith('+json') ||
+      normalizedContentType === 'application/graphql-response+json'
+    );
   }
 
   private async getResponseBodyWithTimeout(request: DevtoolsRequest): Promise<string | undefined> {
